@@ -1,0 +1,25 @@
+---
+- name: Import Google GPG Key
+  ansible.builtin.apt_key:
+    id: 35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    keyring: /etc/apt/trusted.gpg.d/google-packages.gpg
+    state: present
+
+- name: Add Google Apt Repository
+  ansible.builtin.apt_repository:
+    filename: google-packages
+    repo: deb [arch=amd64] https://packages.cloud.google.com/apt google-cloud-ops-agent-noble-all main
+    state: present
+
+- name: Install Google Cloud OPS Agent
+  ansible.builtin.apt:
+    package: [google-cloud-ops-agent]
+    update_cache: true
+    state: present
+
+- name: Start Google Cloud OPS Agent
+  ansible.builtin.service:
+    name: google-cloud-ops-agent
+    state: started
+    enabled: true

@@ -1,0 +1,31 @@
+---
+- name: Import Tailscale GPG Key
+  ansible.builtin.apt_key:
+    id: 2596A99EAAB33821893C0A79458CA832957F5868
+    url: https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg
+    keyring: /etc/apt/trusted.gpg.d/tailscale.gpg
+    state: present
+
+- name: Add Tailscale Apt Repository
+  ansible.builtin.apt_repository:
+    filename: tailscale-packages
+    repo: deb [arch=amd64] https://pkgs.tailscale.com/stable/ubuntu noble main
+    state: present
+
+- name: Install Tailscale Package
+  ansible.builtin.apt:
+    package: [tailscale]
+    update_cache: true
+    state: present
+
+- name: Configure Tailscale Agent
+  ansible.builtin.command:
+    cmd: tailscale up --auth-key={{ TAILSCALE_API_KEY }} --hostname={{ inventory_hostname }}
+  register: tailscale_config_result
+  changed_when: tailscale_config_result.rc != 0
+
+- name: Start Tailscale Agent
+  ansible.builtin.service:
+    name: tailscaled
+    state: started
+    enabled: true

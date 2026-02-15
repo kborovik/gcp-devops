@@ -1,0 +1,8 @@
+- name: Configure VM
+  hosts: all
+  become: true
+  timeout: 720
+  roles:
+    - role: tools
+    - role: zfs
+    - role: google_ops

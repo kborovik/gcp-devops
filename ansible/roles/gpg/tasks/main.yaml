@@ -1,0 +1,24 @@
+---
+- name: Install GPG
+  become: true
+  ansible.builtin.apt:
+    package: [gnupg]
+    update_cache: false
+    state: present
+
+- name: Copy secret GPG key
+  ansible.builtin.copy:
+    src: "{{ gpg_key }}"
+    dest: /tmp/secret-key.gpg
+    mode: "0600"
+
+- name: Import GPG secret key
+  ansible.builtin.command:
+    cmd: gpg --import /tmp/secret-key.gpg
+  register: gpg_import
+  changed_when: gpg_import.rc == 0
+
+- name: Remove GPG secret key
+  ansible.builtin.file:
+    path: /tmp/secret-key.gpg
+    state: absent

@@ -1,0 +1,5 @@
+- name: Deploy Mail Pilot
+  hosts: all
+  roles:
+    - role: mail_pilot
+      become: false
