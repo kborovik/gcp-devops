@@ -1,42 +1,39 @@
 ---
 - name: Install OS Tools
   ansible.builtin.apt:
-    package: ["fish", "git", "jq", "make", "unattended-upgrades"]
+    package: ["fish", "git", "jq", "make"]
     update_cache: true
     state: present
 
-- name: Enable General Updates
-  ansible.builtin.lineinfile:
-    path: /etc/apt/apt.conf.d/50unattended-upgrades
-    regexp: 'distro_codename.-updates";$'
-    line: '        "${distro_id}:${distro_codename}-updates";'
+- name: Import PostgreSQL GPG Key
+  ansible.builtin.apt_key:
+    id: B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    keyring: /etc/apt/trusted.gpg.d/postgresql.gpg
+    state: present
 
-- name: Enable Docker Terraform Updates
-  ansible.builtin.lineinfile:
-    path: /etc/apt/apt.conf.d/50unattended-upgrades
-    regexp: 'distro_codename.-proposed";$'
-    line: '        "Docker:noble"; "Artifactory:noble"; "cloud-sdk:cloud-sdk";'
+- name: Add PostgreSQL Apt Repository
+  ansible.builtin.apt_repository:
+    filename: postgresql
+    repo: deb [arch=amd64] https://apt.postgresql.org/pub/repos/apt noble-pgdg main
+    state: present
 
-- name: Enable Automatic Reboot
-  ansible.builtin.lineinfile:
-    path: /etc/apt/apt.conf.d/50unattended-upgrades
-    search_string: '//Unattended-Upgrade::Automatic-Reboot "false";'
-    line: 'Unattended-Upgrade::Automatic-Reboot "true";'
+- name: Install PostgreSQL 18
+  ansible.builtin.apt:
+    package: ["postgresql-18"]
+    update_cache: true
+    state: present
 
-- name: Set Automatic Reboot Time
-  ansible.builtin.lineinfile:
-    path: /etc/apt/apt.conf.d/50unattended-upgrades
-    search_string: '//Unattended-Upgrade::Automatic-Reboot-Time "02:00";'
-    line: 'Unattended-Upgrade::Automatic-Reboot-Time "02:00";'
+- name: Set ZFS PostgreSQL permissions
+  ansible.builtin.file:
+    path: /var/lib/postgresql
+    owner: postgres
+    group: postgres
+    mode: "0700"
+    state: directory
 
-- name: Force Automatic Reboot
-  ansible.builtin.lineinfile:
-    path: /etc/apt/apt.conf.d/50unattended-upgrades
-    search_string: '//Unattended-Upgrade::Automatic-Reboot-WithUsers "true";'
-    line: 'Unattended-Upgrade::Automatic-Reboot-WithUsers "true";'
-
-- name: Remove Unused Dependencies
-  ansible.builtin.lineinfile:
-    path: /etc/apt/apt.conf.d/50unattended-upgrades
-    search_string: '//Unattended-Upgrade::Remove-Unused-Dependencies "false";'
-    line: 'Unattended-Upgrade::Remove-Unused-Dependencies "true";'
+- name: Start PostgreSQL
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
