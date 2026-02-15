@@ -40,7 +40,6 @@ ansible_dir := $(root_dir)/ansible
 ansible_user := ubuntu
 ansible_inventory := $(ansible_dir)/inventory
 ansible_ssh_key := $(secrets_dir)/ssh.key
-ansible_gpg_key := $(secrets_dir)/gpg.key
 ansible_args := --inventory $(ansible_inventory) --user $(ansible_user) --private-key $(ansible_ssh_key) --extra-vars ansible_python_interpreter='/usr/bin/python3.12'
 
 SSH_COMMON_ARGS := -o StrictHostKeyChecking=no
@@ -76,21 +75,13 @@ ansible-vm-ping: ansible-inventory $(ansible_ssh_key)
 ansible-vm-config: ansible-vm-ping
 	$(call header,Ansible VM Configuration)
 	ansible-playbook $(ansible_args) \
-	--extra-vars gpg_key=$(ansible_gpg_key) \
-	--extra-vars TAILSCALE_API_KEY=$(shell gpg -d $(secrets_dir)/TAILSCALE_API_KEY.gpg) \
 	ansible/playbook-vm-config.yaml
-
-ansible-mail-pilot: ansible-vm-ping
-	$(call header,Ansible Mail Pilot)
-	ansible-playbook $(ansible_args) \
-	--extra-vars MAIL_PILOT_DNS=$(shell jq -r '.ansible_hosts.value[0].dns' $(terraform_dir)/output.json) \
-	ansible/playbook-mail-pilot.yaml
 
 ansible-clean:
 	$(MAKE) -C secrets clean
 	-ssh-keygen -f ~/.ssh/known_hosts -R "[127.0.0.1]:2222" > /dev/null 2>&1
 
-ansible: ansible-vm-config ansible-mail-pilot ansible-clean
+ansible: ansible-vm-config ansible-clean
 
 ###############################################################################
 # Terraform
@@ -190,6 +181,10 @@ gce-stop:
 		echo "No instances found in zone $(google_zone)"
 	fi
 
+gce-ssh: $(ansible_ssh_key) ## SSH into GCE instance
+	$(call header,SSH into GCE instance)
+	ssh $(SSH_COMMON_ARGS) -i $(ansible_ssh_key) $(ansible_user)@$(shell jq -r '.ansible_hosts.value[0].dns' $(terraform_dir)/output.json)
+
 gce-start:
 	$(call header,Start Google Compute Engine instances)
 	$(eval google_instances := $(shell gcloud compute instances list --project=$(google_project) --format='value(name)' --filter='zone:($(google_zone))'))
@@ -245,7 +240,6 @@ mailpilot-pilot-dev1:
 	$(call header,Deploy $(yellow)$(@)$(reset))
 	$(MAKE) terraform-apply google_project=$(@)
 	$(MAKE) ansible-vm-config google_project=$(@)
-	$(MAKE) ansible-mail-pilot google_project=$(@)
 
 ###############################################################################
 # Colors and Headers

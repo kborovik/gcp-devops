@@ -3,6 +3,6 @@
   become: true
   timeout: 720
   roles:
-    - role: tools
     - role: zfs
+    - role: tools
     - role: google_ops

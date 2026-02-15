@@ -134,7 +134,7 @@ resource "google_compute_instance" "mailpilot" {
 
 resource "cloudflare_dns_record" "mailpilot_ipv4" {
   zone_id = data.cloudflare_zone.public.zone_id
-  name    = local.dep_env
+  name    = "${local.dep_env}.${data.cloudflare_zone.public.name}"
   type    = "A"
   content = google_compute_address.mailpilot_ipv4.address
   ttl     = 300
