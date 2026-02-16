@@ -47,11 +47,15 @@ resource "google_compute_resource_policy" "mailpilot_stop_only" {
 ###############################################################################
 
 resource "google_compute_disk" "mailpilot_data" {
-  name       = "mail-pilot-1-data"
+  name       = "mailpilot-1-pgsql"
   type       = "pd-balanced"
   zone       = "${var.google_region}-b"
   size       = 20
   depends_on = [google_project_service.main]
+
+  lifecycle {
+    prevent_destroy = false
+  }
 }
 
 ###############################################################################
@@ -59,7 +63,7 @@ resource "google_compute_disk" "mailpilot_data" {
 ###############################################################################
 
 resource "google_compute_address" "mailpilot_ipv4" {
-  name         = "mail-pilot-1-ipv4"
+  name         = "mailpilot-1-ipv4"
   address_type = "EXTERNAL"
   depends_on   = [google_project_service.main]
 }
@@ -126,6 +130,37 @@ resource "google_compute_instance" "mailpilot" {
       boot_disk[0].initialize_params[0].image
     ]
   }
+}
+
+###############################################################################
+# Data Disk Snapshot Policy
+###############################################################################
+
+resource "google_compute_resource_policy" "data_disk_snapshots" {
+  name   = "data-disk-daily-snapshots"
+  region = var.google_region
+
+  snapshot_schedule_policy {
+    schedule {
+      daily_schedule {
+        days_in_cycle = 1
+        start_time    = "02:00"
+      }
+    }
+
+    retention_policy {
+      max_retention_days    = 14
+      on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS"
+    }
+  }
+
+  depends_on = [google_project_service.main]
+}
+
+resource "google_compute_disk_resource_policy_attachment" "data_disk_snapshots" {
+  name = google_compute_resource_policy.data_disk_snapshots.name
+  disk = google_compute_disk.mailpilot_data.name
+  zone = "${var.google_region}-b"
 }
 
 ###############################################################################

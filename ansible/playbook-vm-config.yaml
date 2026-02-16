@@ -6,4 +6,5 @@
     - role: zfs
     - role: tools
     - role: postgresql
+    - role: sanoid
     - role: google_ops

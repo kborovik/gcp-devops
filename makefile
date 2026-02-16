@@ -79,7 +79,9 @@ ansible-vm-config: ansible-vm-ping
 
 ansible-clean:
 	$(MAKE) -C secrets clean
-	-ssh-keygen -f ~/.ssh/known_hosts -R "[127.0.0.1]:2222" > /dev/null 2>&1
+	-jq -r '.ansible_hosts.value[].dns' $(terraform_dir)/output.json 2>/dev/null | while read -r host; do \
+		ssh-keygen -f ~/.ssh/known_hosts -R "$$host" > /dev/null 2>&1; \
+	done
 
 ansible: ansible-vm-config ansible-clean
 
@@ -112,7 +114,7 @@ endif
 
 terraform-init: terraform-fmt
 	$(call header,Initialize Terraform)
-	terraform -chdir=$(terraform_dir) init -upgrade -reconfigure -backend-config="bucket=$(terraform_bucket)" -backend-config="prefix=$(terraform_prefix)"
+	terraform -chdir=$(terraform_dir) init -upgrade -reconfigure -backend-config="bucket=$(terraform_bucket)"
 
 terraform-validate: terraform-init
 	$(call header,Validate Terraform)
@@ -184,6 +186,18 @@ gce-stop:
 gce-ssh: $(ansible_ssh_key) ## SSH into GCE instance
 	$(call header,SSH into GCE instance)
 	ssh $(SSH_COMMON_ARGS) -i $(ansible_ssh_key) $(ansible_user)@$(shell jq -r '.ansible_hosts.value[0].dns' $(terraform_dir)/output.json)
+
+gce-delete:
+	$(call header,Delete Google Compute Engine instances)
+	$(eval google_instances := $(shell gcloud compute instances list --project=$(google_project) --format='value(name)' --filter='zone:($(google_zone))'))
+	if [ -n "$(google_instances)" ]; then
+		for instance in $(google_instances); do
+			echo "Deleting instance: $$instance in zone $(google_zone)"
+			gcloud compute instances delete $$instance --project=$(google_project) --zone $(google_zone) --quiet
+		done
+	else
+		echo "No instances found in zone $(google_zone)"
+	fi
 
 gce-start:
 	$(call header,Start Google Compute Engine instances)

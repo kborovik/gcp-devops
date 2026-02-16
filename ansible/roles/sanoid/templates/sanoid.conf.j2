@@ -1,0 +1,14 @@
+[data/postgresql/data]
+    use_template = postgresql
+
+[data/postgresql/wal]
+    use_template = postgresql
+
+[template_postgresql]
+    hourly = 12
+    daily = 7
+    weekly = 4
+    monthly = 0
+    yearly = 0
+    autosnap = yes
+    autoprune = yes
