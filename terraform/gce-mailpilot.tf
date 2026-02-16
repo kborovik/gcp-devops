@@ -50,7 +50,7 @@ resource "google_compute_disk" "mailpilot_data" {
   name       = "mail-pilot-1-data"
   type       = "pd-balanced"
   zone       = "${var.google_region}-b"
-  size       = 60
+  size       = 20
   depends_on = [google_project_service.main]
 }
 
@@ -86,7 +86,7 @@ resource "google_compute_instance" "mailpilot" {
     initialize_params {
       image = "ubuntu-2404-lts-amd64"
       type  = "pd-balanced"
-      size  = 30
+      size  = 20
     }
   }
 

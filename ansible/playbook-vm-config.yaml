@@ -5,4 +5,5 @@
   roles:
     - role: zfs
     - role: tools
+    - role: postgresql
     - role: google_ops
