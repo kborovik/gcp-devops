@@ -17,6 +17,11 @@
   ansible.builtin.set_fact:
     gcp_project_id: "{{ gcp_metadata.content }}"
 
+- name: Install uv
+  ansible.builtin.shell:
+    cmd: curl -LsSf https://astral.sh/uv/install.sh | sh
+    creates: /root/.local/bin/uv
+
 - name: Create pilot group
   ansible.builtin.group:
     name: "{{ pilot_group }}"
@@ -47,7 +52,7 @@
 
 - name: Check if release already installed
   ansible.builtin.stat:
-    path: "{{ pilot_releases_dir }}/{{ pilot_version }}/venv/bin/pilot"
+    path: "{{ pilot_releases_dir }}/{{ pilot_version }}/bin/pilot"
   register: pilot_release_check
 
 - name: Install release
@@ -61,26 +66,28 @@
         mode: "0755"
         state: directory
 
-    - name: Download wheel from GCS
-      ansible.builtin.command:
-        cmd: >-
-          gsutil cp
-          gs://{{ pilot_artifact_bucket }}/pilot/pilot-{{ pilot_version }}-*.whl
-          {{ pilot_releases_dir }}/{{ pilot_version }}/
-      become: true
-      become_user: "{{ pilot_user }}"
-      register: pilot_download
-      changed_when: pilot_download.rc == 0
+    - name: Download wheel from GitHub releases
+      ansible.builtin.get_url:
+        url: "https://github.com/{{ pilot_github_repo }}/releases/download/v{{ pilot_version }}/pilot-{{ pilot_version }}-py3-none-any.whl"
+        dest: "{{ pilot_releases_dir }}/{{ pilot_version }}/pilot-{{ pilot_version }}-py3-none-any.whl"
+        owner: "{{ pilot_user }}"
+        group: "{{ pilot_group }}"
+        mode: "0644"
 
-    - name: Create virtualenv and install wheel
+    - name: Create venv and install wheel with uv
       ansible.builtin.shell:
         cmd: |
-          python3 -m venv {{ pilot_releases_dir }}/{{ pilot_version }}/venv
-          {{ pilot_releases_dir }}/{{ pilot_version }}/venv/bin/pip install --no-cache-dir {{ pilot_releases_dir }}/{{ pilot_version }}/pilot-{{ pilot_version }}-*.whl
-      become: true
-      become_user: "{{ pilot_user }}"
+          /root/.local/bin/uv venv --python {{ pilot_python_version }} {{ pilot_releases_dir }}/{{ pilot_version }}
+          /root/.local/bin/uv pip install --python {{ pilot_releases_dir }}/{{ pilot_version }}/bin/python {{ pilot_releases_dir }}/{{ pilot_version }}/pilot-{{ pilot_version }}-py3-none-any.whl
       register: pilot_install
       changed_when: pilot_install.rc == 0
+
+    - name: Set release directory ownership
+      ansible.builtin.file:
+        path: "{{ pilot_releases_dir }}/{{ pilot_version }}"
+        owner: "{{ pilot_user }}"
+        group: "{{ pilot_group }}"
+        recurse: true
 
 - name: Update current symlink
   ansible.builtin.file:

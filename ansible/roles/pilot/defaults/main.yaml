@@ -9,7 +9,9 @@ pilot_releases_dir: "{{ pilot_base_dir }}/releases"
 pilot_env_dir: "{{ pilot_base_dir }}/env"
 pilot_current_link: "{{ pilot_base_dir }}/current"
 
-pilot_artifact_bucket: "artifacts-{{ gcp_project_id }}"
+pilot_github_repo: kborovik/pilot
+pilot_python_version: "3.13"
+
 pilot_database_url: "postgresql://pilot@localhost/pilot"
 
 pilot_anthropic_api_key: ""

@@ -86,7 +86,7 @@ ansible: ansible-vm-config ansible-clean
 # Pilot App Deployment
 ###############################################################################
 
-pilot_version ?=
+pilot_version ?= $(shell gh release view --repo kborovik/pilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//')
 
 ANTHROPIC_API_KEY = $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null)
 
