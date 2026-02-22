@@ -1,0 +1,19 @@
+[Unit]
+Description=Pilot application server
+After=network-online.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User={{ pilot_user }}
+Group={{ pilot_group }}
+EnvironmentFile={{ pilot_env_dir }}/pilot.env
+ExecStart={{ pilot_current_link }}/venv/bin/pilot server start --input.daemon
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pilot
+
+[Install]
+WantedBy=multi-user.target

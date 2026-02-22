@@ -8,3 +8,5 @@
     - role: postgresql
     - role: sanoid
     - role: google_ops
+    - role: pilot
+      when: pilot_version | default('') | length > 0

@@ -1,0 +1,130 @@
+---
+- name: Assert pilot_version is set
+  ansible.builtin.assert:
+    that:
+      - pilot_version | length > 0
+    fail_msg: "pilot_version must be set (e.g. --extra-vars 'pilot_version=1.2.3')"
+
+- name: Fetch GCP project ID from metadata server
+  ansible.builtin.uri:
+    url: http://metadata.google.internal/computeMetadata/v1/project/project-id
+    headers:
+      Metadata-Flavor: Google
+    return_content: true
+  register: gcp_metadata
+
+- name: Set GCP project ID fact
+  ansible.builtin.set_fact:
+    gcp_project_id: "{{ gcp_metadata.content }}"
+
+- name: Create pilot group
+  ansible.builtin.group:
+    name: "{{ pilot_group }}"
+    system: true
+    state: present
+
+- name: Create pilot user
+  ansible.builtin.user:
+    name: "{{ pilot_user }}"
+    group: "{{ pilot_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ pilot_base_dir }}"
+    create_home: false
+
+- name: Create directory structure
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: "{{ item.owner | default(pilot_user) }}"
+    group: "{{ item.group | default(pilot_group) }}"
+    mode: "{{ item.mode | default('0755') }}"
+    state: directory
+  loop:
+    - { path: "{{ pilot_base_dir }}" }
+    - { path: "{{ pilot_releases_dir }}" }
+    - { path: "{{ pilot_env_dir }}", mode: "0750" }
+    - { path: "/var/log/pilot" }
+
+- name: Check if release already installed
+  ansible.builtin.stat:
+    path: "{{ pilot_releases_dir }}/{{ pilot_version }}/venv/bin/pilot"
+  register: pilot_release_check
+
+- name: Install release
+  when: not pilot_release_check.stat.exists
+  block:
+    - name: Create release directory
+      ansible.builtin.file:
+        path: "{{ pilot_releases_dir }}/{{ pilot_version }}"
+        owner: "{{ pilot_user }}"
+        group: "{{ pilot_group }}"
+        mode: "0755"
+        state: directory
+
+    - name: Download wheel from GCS
+      ansible.builtin.command:
+        cmd: >-
+          gsutil cp
+          gs://{{ pilot_artifact_bucket }}/pilot/pilot-{{ pilot_version }}-*.whl
+          {{ pilot_releases_dir }}/{{ pilot_version }}/
+      become: true
+      become_user: "{{ pilot_user }}"
+      register: pilot_download
+      changed_when: pilot_download.rc == 0
+
+    - name: Create virtualenv and install wheel
+      ansible.builtin.shell:
+        cmd: |
+          python3 -m venv {{ pilot_releases_dir }}/{{ pilot_version }}/venv
+          {{ pilot_releases_dir }}/{{ pilot_version }}/venv/bin/pip install --no-cache-dir {{ pilot_releases_dir }}/{{ pilot_version }}/pilot-{{ pilot_version }}-*.whl
+      become: true
+      become_user: "{{ pilot_user }}"
+      register: pilot_install
+      changed_when: pilot_install.rc == 0
+
+- name: Update current symlink
+  ansible.builtin.file:
+    src: "{{ pilot_releases_dir }}/{{ pilot_version }}"
+    dest: "{{ pilot_current_link }}"
+    owner: "{{ pilot_user }}"
+    group: "{{ pilot_group }}"
+    state: link
+  notify: Restart pilot
+
+- name: Deploy environment file
+  ansible.builtin.template:
+    src: pilot.env.j2
+    dest: "{{ pilot_env_dir }}/pilot.env"
+    owner: "{{ pilot_user }}"
+    group: "{{ pilot_group }}"
+    mode: "0600"
+  notify: Restart pilot
+
+- name: Deploy systemd unit
+  ansible.builtin.template:
+    src: pilot.service.j2
+    dest: /etc/systemd/system/pilot.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart pilot
+
+- name: Enable and start pilot service
+  ansible.builtin.systemd:
+    name: pilot
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: List existing releases
+  ansible.builtin.find:
+    paths: "{{ pilot_releases_dir }}"
+    file_type: directory
+  register: pilot_existing_releases
+
+- name: Clean up old releases
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ (pilot_existing_releases.files | sort(attribute='mtime') | reverse)[pilot_keep_releases:] }}"
+  when: pilot_existing_releases.files | length > pilot_keep_releases

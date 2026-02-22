@@ -45,9 +45,6 @@ ansible_args := --inventory $(ansible_inventory) --user $(ansible_user) --privat
 SSH_COMMON_ARGS := -o StrictHostKeyChecking=no
 ANSIBLE_HOST_KEY_CHECKING := False
 
-docker_config := $(secrets_dir)/docker-config.json
-mail_pilot_version :=
-
 $(ansible_ssh_key):
 	gpg $@.gpg && chmod 600 $@
 
@@ -84,6 +81,34 @@ ansible-clean:
 	done
 
 ansible: ansible-vm-config ansible-clean
+
+###############################################################################
+# Pilot App Deployment
+###############################################################################
+
+pilot_version ?=
+
+ANTHROPIC_API_KEY = $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null)
+
+deploy: ansible-inventory $(ansible_ssh_key) ## Deploy Pilot app (pilot_version=X.Y.Z)
+	@if [ -z "$(pilot_version)" ]; then \
+		echo "$(red)Error: pilot_version required. Usage: make deploy pilot_version=1.2.3$(reset)"; \
+		exit 1; \
+	fi
+	$(call header,Deploy Pilot $(yellow)v$(pilot_version)$(reset) to $(yellow)$(google_project)$(reset))
+	ansible-playbook $(ansible_args) \
+		--extra-vars 'pilot_version=$(pilot_version) pilot_anthropic_api_key=$(ANTHROPIC_API_KEY)' \
+		ansible/playbook-pilot-deploy.yaml
+
+rollback: ansible-inventory $(ansible_ssh_key) ## Rollback Pilot to previous release
+	$(call header,Rollback Pilot on $(yellow)$(google_project)$(reset))
+	ansible $(ansible_args) all -m shell -a \
+		"prev=$$(ls -1dt /opt/pilot/releases/*/ | sed -n 2p) && ln -sfn $$prev /opt/pilot/current && systemctl restart pilot && readlink /opt/pilot/current"
+
+pilot-status: ansible-inventory $(ansible_ssh_key) ## Check Pilot service status
+	$(call header,Pilot Status on $(yellow)$(google_project)$(reset))
+	ansible $(ansible_args) all -m shell -a \
+		"systemctl status pilot --no-pager; echo '---'; readlink /opt/pilot/current"
 
 ###############################################################################
 # Terraform
@@ -254,6 +279,7 @@ mailpilot-pilot-dev1:
 	$(call header,Deploy $(yellow)$(@)$(reset))
 	$(MAKE) terraform-apply google_project=$(@)
 	$(MAKE) ansible-vm-config google_project=$(@)
+	$(if $(pilot_version),$(MAKE) deploy google_project=$(@) pilot_version=$(pilot_version))
 
 ###############################################################################
 # Colors and Headers

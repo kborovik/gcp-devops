@@ -1,0 +1,19 @@
+---
+pilot_version: ""
+
+pilot_user: pilot
+pilot_group: pilot
+
+pilot_base_dir: /opt/pilot
+pilot_releases_dir: "{{ pilot_base_dir }}/releases"
+pilot_env_dir: "{{ pilot_base_dir }}/env"
+pilot_current_link: "{{ pilot_base_dir }}/current"
+
+pilot_artifact_bucket: "artifacts-{{ gcp_project_id }}"
+pilot_database_url: "postgresql://pilot@localhost/pilot"
+
+pilot_anthropic_api_key: ""
+pilot_pubsub_subscription: ""
+pilot_pubsub_topic: ""
+
+pilot_keep_releases: 3
