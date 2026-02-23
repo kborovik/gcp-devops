@@ -88,6 +88,10 @@ make mailpilot-pilot-dev1
 
 This gives you a fresh Ubuntu VM with an empty data disk — all Ansible roles will run from scratch.
 
+## Pilot Source Code
+
+The Pilot application source code is available at `/Users/kb/github/pilot`. Review it when you need to understand Pilot's expected behavior, configuration, CLI commands, database schema, or service setup.
+
 ## Troubleshooting
 
 - SSH into the instance with `make gce-ssh` to inspect logs, services, and filesystem state
