@@ -1,0 +1,30 @@
+---
+- name: Check if Claude Code is installed
+  ansible.builtin.stat:
+    path: "{{ claude_code_home }}/.local/bin/claude"
+  register: claude_code_check
+
+- name: Install Claude Code
+  when: not claude_code_check.stat.exists
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://claude.ai/install.sh | bash
+    creates: "{{ claude_code_home }}/.local/bin/claude"
+  become_user: "{{ claude_code_user }}"
+
+- name: Add Claude Code to system PATH
+  ansible.builtin.file:
+    src: "{{ claude_code_home }}/.local/bin/claude"
+    dest: /usr/local/bin/claude
+    state: link
+    force: true
+
+- name: Verify Claude Code installation
+  ansible.builtin.command:
+    cmd: claude --version
+  become_user: "{{ claude_code_user }}"
+  register: claude_code_version
+  changed_when: false
+
+- name: Display Claude Code version
+  ansible.builtin.debug:
+    msg: "Claude Code version: {{ claude_code_version.stdout }}"
