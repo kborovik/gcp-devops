@@ -1,6 +1,25 @@
 ---
 - name: Install OS Tools
   ansible.builtin.apt:
-    package: ['acl', 'fish', 'git', 'jq', 'make', 'gnupg']
+    package: ['acl', 'bat', 'fish', 'git', 'jq', 'make', 'gnupg']
     update_cache: true
     state: present
+
+- name: Copy Fish config
+  ansible.builtin.copy:
+    src: fish/
+    dest: /home/ubuntu/.config/fish/
+    owner: ubuntu
+    group: ubuntu
+
+- name: Copy VIM config
+  ansible.builtin.copy:
+    src: vim/
+    dest: /home/ubuntu/.vim/
+    owner: ubuntu
+    group: ubuntu
+
+- name: Set Fish as default shell
+  ansible.builtin.user:
+    name: ubuntu
+    shell: /usr/bin/fish
