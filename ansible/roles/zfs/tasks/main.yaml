@@ -97,6 +97,31 @@
   changed_when: zfs_pg_wal_create.rc == 0
   failed_when: zfs_pg_wal_create.rc != 0
 
+- name: Check ZFS Pilot dataset
+  ansible.builtin.command:
+    cmd: zfs list -H data/pilot
+  register: zfs_pilot_status
+  changed_when: false
+  failed_when: false
+
+- name: Create ZFS Pilot dataset
+  when: zfs_pilot_status.rc != 0
+  ansible.builtin.command:
+    cmd: >-
+      zfs create
+      -o mountpoint=/home/ubuntu/pilot
+      data/pilot
+  register: zfs_pilot_create
+  changed_when: zfs_pilot_create.rc == 0
+  failed_when: zfs_pilot_create.rc != 0
+
+- name: Set ZFS Pilot dataset ownership
+  ansible.builtin.file:
+    path: /home/ubuntu/pilot
+    owner: ubuntu
+    group: ubuntu
+    state: directory
+
 - name: Check ZFS PostgreSQL WAL mountpoint
   when: zfs_pg_wal_status.rc == 0
   ansible.builtin.command:

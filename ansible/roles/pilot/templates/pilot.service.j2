@@ -11,9 +11,8 @@ EnvironmentFile={{ pilot_env_dir }}/pilot.env
 ExecStart={{ pilot_current_link }}/bin/pilot server start
 Restart=on-failure
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=pilot
+StandardOutput=append:{{ pilot_log_dir }}/pilot.log
+StandardError=append:{{ pilot_log_dir }}/pilot.log
 
 [Install]
 WantedBy=multi-user.target

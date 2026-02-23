@@ -1,7 +1,7 @@
 ---
 - name: Install OS Tools
   ansible.builtin.apt:
-    package: ['acl', 'bat', 'fish', 'git', 'jq', 'make', 'gnupg']
+    package: ['acl', 'bat', 'fish', 'git', 'jq', 'make', 'gnupg', 'tree']
     update_cache: true
     state: present
 
