@@ -5,6 +5,7 @@
   roles:
     - role: zfs
     - role: tools
+    - role: github_cli
     - role: postgresql
     - role: sanoid
     - role: google_ops
