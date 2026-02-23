@@ -47,12 +47,10 @@ make gce-ssh
 
 ## Pilot CLI Reference
 
-The `pilot` binary supports these resources (run on remote host):
-
 Use `pilot schema get` for full parameter details.
 
 ## Definition of Success
 
-1. `make gce-exec cmd="pilot setup validate"` — all services must pass validation
-2. `make gce-exec cmd="pilot server logs"` — server logs are viewable
-3. `make gce-exec cmd="pilot setup get"` — Anthropic API key is set
+1. `make gce-exec cmd="pilot server logs"` — server logs are viewable
+2. `make gce-exec cmd="pilot setup get"` — Anthropic API key is set
+3. `make gce-exec cmd="pilot setup validate"` — all services must pass validation
