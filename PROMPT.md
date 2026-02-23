@@ -63,13 +63,20 @@ The `pilot` binary supports these resources (run on remote host):
 
 Use `pilot schema get` for full parameter details.
 
+## Definition of Success
+
+1. After SSH into the pilot server host (`make gce-ssh`), the user can run `pilot setup validate` directly (without absolute path) and **all services must pass validation**
+2. The `pilot` binary directory (`/home/ubuntu/pilot/current/bin`) must be on PATH for both **bash** and **fish** shells
+
 ## Workflow
 
 1. Ensure the GCE instance is running: `make gce-status` (start with `make gce-start` if stopped)
 2. Run Phase 1 — `make ansible-vm-config` — fix any role failures before proceeding
 3. Run Phase 2 — `make pilot-deploy` — fix any deployment failures
 4. Verify success — `make pilot-status` — confirm pilot service is active and running
-5. If all checks pass, output `LOOP_COMPLETE`
+5. Verify PATH — SSH in and confirm `which pilot` resolves to `/home/ubuntu/pilot/current/bin/pilot`
+6. Verify validation — SSH in and confirm `pilot setup validate` passes all checks
+7. If all checks pass, output `LOOP_COMPLETE`
 
 ### Re-creating the VM from scratch
 

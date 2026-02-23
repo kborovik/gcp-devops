@@ -35,6 +35,7 @@ clean: terraform-clean
 ###############################################################################
 
 mailpilot-pilot-dev1:
+	set -e
 	$(call header,Deploy $(yellow)$(@)$(reset))
 	$(MAKE) terraform-apply google_project=$(@)
 	$(MAKE) ansible-vm-config google_project=$(@)
