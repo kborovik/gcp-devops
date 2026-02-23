@@ -1,6 +1,7 @@
 # Objective
 
-Deploy MailPilot Python application into Google Cloud Ubuntu VM.
+- Update Ansible role 'pilot' by move entire '/home/ubuntu' home folder to zfs filesystem.
+- Deploy MailPilot Python application into Google Cloud Ubuntu VM.
 
 ## Context
 
