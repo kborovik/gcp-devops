@@ -1,6 +1,7 @@
 # Objective
 
 - Update Ansible role 'pilot' by move entire '/home/ubuntu' home folder to zfs filesystem.
+- Configure ZFS snapshot backup (Sanoid) for `/home/ubuntu` dataset.
 - Deploy MailPilot Python application into Google Cloud Ubuntu VM.
 
 ## Context
@@ -52,6 +53,22 @@ Use `pilot schema get` for full parameter details.
 
 ## Definition of Success
 
-1. `make gce-exec cmd="pilot server logs"` — server logs are viewable
-2. `make gce-exec cmd="pilot setup get"` — Anthropic API key is set
-3. `make gce-exec cmd="pilot setup validate"` — all services must pass validation
+### Objective 1 — Move `/home/ubuntu` to ZFS
+
+1. `make gce-exec cmd="zfs list data/home"` — `/home/ubuntu` is a ZFS dataset
+2. `make gce-exec cmd="stat -f -c %T /home/ubuntu"` — home folder is on ZFS filesystem
+3. `make gce-exec cmd="ls -la /home/ubuntu/.config/fish/"` — user config files are on ZFS
+4. `make gce-exec cmd="ls -la /home/ubuntu/.local/bin/uv"` — user local binaries are on ZFS
+
+### Objective 2 — Configure ZFS snapshot backup for `/home/ubuntu`
+
+1. `make gce-exec cmd="cat /etc/sanoid/sanoid.conf"` — `data/home` dataset has Sanoid snapshot policy
+2. `make gce-exec cmd="systemctl is-active sanoid.timer"` — Sanoid timer is active
+3. `make gce-exec cmd="sanoid --cron --verbose"` — snapshot creation succeeds
+4. `make gce-exec cmd="zfs list -t snapshot -r data/home"` — snapshots exist for home dataset
+
+### Objective 3 — Deploy MailPilot application
+
+1. `make gce-exec cmd="pilot setup get"` — Anthropic API key is set
+2. `make gce-exec cmd="pilot setup validate"` — all services must pass validation
+3. `make gce-exec cmd="pilot server logs"` — server logs are viewable
