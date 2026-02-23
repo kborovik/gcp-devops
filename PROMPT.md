@@ -1,8 +1,9 @@
 # Objective
 
-- Update Ansible role 'pilot' by move entire '/home/ubuntu' home folder to zfs filesystem.
-- Configure ZFS snapshot backup (Sanoid) for `/home/ubuntu` dataset.
+- Update Ansible role 'pilot' by moving entire '/home/ubuntu' home folder to ZFS dataset `data/home/ubuntu`.
+- Configure ZFS snapshot backup (Sanoid) for `data/home/ubuntu` dataset.
 - Deploy MailPilot Python application into Google Cloud Ubuntu VM.
+- Develop Ansible role to install Claude Code on the GCE VM.
 
 ## Context
 
@@ -55,20 +56,32 @@ Use `pilot schema get` for full parameter details.
 
 ### Objective 1 — Move `/home/ubuntu` to ZFS
 
-1. `make gce-exec cmd="zfs list data/home"` — `/home/ubuntu` is a ZFS dataset
+1. `make gce-exec cmd="zfs list data/home/ubuntu"` — `/home/ubuntu` is a ZFS dataset
 2. `make gce-exec cmd="stat -f -c %T /home/ubuntu"` — home folder is on ZFS filesystem
 3. `make gce-exec cmd="ls -la /home/ubuntu/.config/fish/"` — user config files are on ZFS
 4. `make gce-exec cmd="ls -la /home/ubuntu/.local/bin/uv"` — user local binaries are on ZFS
 
 ### Objective 2 — Configure ZFS snapshot backup for `/home/ubuntu`
 
-1. `make gce-exec cmd="cat /etc/sanoid/sanoid.conf"` — `data/home` dataset has Sanoid snapshot policy
+1. `make gce-exec cmd="cat /etc/sanoid/sanoid.conf"` — `data/home/ubuntu` dataset has Sanoid snapshot policy
 2. `make gce-exec cmd="systemctl is-active sanoid.timer"` — Sanoid timer is active
 3. `make gce-exec cmd="sanoid --cron --verbose"` — snapshot creation succeeds
-4. `make gce-exec cmd="zfs list -t snapshot -r data/home"` — snapshots exist for home dataset
+4. `make gce-exec cmd="zfs list -t snapshot -r data/home/ubuntu"` — snapshots exist for home dataset
 
 ### Objective 3 — Deploy MailPilot application
 
 1. `make gce-exec cmd="pilot setup get"` — Anthropic API key is set
 2. `make gce-exec cmd="pilot setup validate"` — all services must pass validation
 3. `make gce-exec cmd="pilot server logs"` — server logs are viewable
+
+### Objective 4 — Install Claude Code
+
+1. `make gce-exec cmd="claude --version"` — Claude Code CLI is installed and reports a version
+2. `make gce-exec cmd="which claude"` — Claude Code binary is on PATH
+
+### Objective 5 — Recreate GCE instance
+
+1. `make terraform-apply` with GCE instance deleted — Terraform recreates the instance from scratch
+2. `make ansible-vm-config` — VM configuration completes successfully on fresh instance
+3. `make pilot-deploy` — Pilot deployment completes successfully on fresh instance
+4. `make gce-exec cmd="pilot setup validate"` — all services pass validation after full recreate
