@@ -141,7 +141,11 @@
     - name: Mount data/home
       ansible.builtin.command:
         cmd: zfs mount data/home
-      changed_when: true
+      register: zfs_mount_home
+      changed_when: zfs_mount_home.rc == 0
+      failed_when:
+        - zfs_mount_home.rc != 0
+        - "'filesystem already mounted' not in zfs_mount_home.stderr"
 
     - name: Restore home directory contents
       ansible.builtin.shell:
