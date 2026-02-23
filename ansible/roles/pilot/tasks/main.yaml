@@ -20,22 +20,8 @@
 - name: Install uv
   ansible.builtin.shell:
     cmd: curl -LsSf https://astral.sh/uv/install.sh | sh
-    creates: /root/.local/bin/uv
-
-- name: Create pilot group
-  ansible.builtin.group:
-    name: "{{ pilot_group }}"
-    system: true
-    state: present
-
-- name: Create pilot user
-  ansible.builtin.user:
-    name: "{{ pilot_user }}"
-    group: "{{ pilot_group }}"
-    system: true
-    shell: /usr/sbin/nologin
-    home: "{{ pilot_base_dir }}"
-    create_home: false
+    creates: /home/ubuntu/.local/bin/uv
+  become_user: "{{ pilot_user }}"
 
 - name: Create directory structure
   ansible.builtin.file:
@@ -48,7 +34,7 @@
     - { path: "{{ pilot_base_dir }}" }
     - { path: "{{ pilot_releases_dir }}" }
     - { path: "{{ pilot_env_dir }}", mode: "0750" }
-    - { path: "/var/log/pilot" }
+    - { path: "{{ pilot_log_dir }}" }
 
 - name: Check if release already installed
   ansible.builtin.stat:
@@ -66,19 +52,29 @@
         mode: "0755"
         state: directory
 
+    - name: Get release asset URL from GitHub API
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ pilot_github_repo }}/releases/tags/v{{ pilot_version }}"
+        headers:
+          Authorization: "Bearer {{ pilot_github_token }}"
+        return_content: true
+      register: pilot_release_info
+
     - name: Download wheel from GitHub releases
       ansible.builtin.get_url:
-        url: "https://github.com/{{ pilot_github_repo }}/releases/download/v{{ pilot_version }}/pilot-{{ pilot_version }}-py3-none-any.whl"
-        dest: "{{ pilot_releases_dir }}/{{ pilot_version }}/pilot-{{ pilot_version }}-py3-none-any.whl"
-        owner: "{{ pilot_user }}"
-        group: "{{ pilot_group }}"
+        url: "{{ (pilot_release_info.json.assets | selectattr('name', 'equalto', pilot_wheel_name) | first).url }}"
+        dest: "/tmp/{{ pilot_wheel_name }}"
+        headers:
+          Authorization: "Bearer {{ pilot_github_token }}"
+          Accept: "application/octet-stream"
         mode: "0644"
 
     - name: Create venv and install wheel with uv
       ansible.builtin.shell:
         cmd: |
-          /root/.local/bin/uv venv --python {{ pilot_python_version }} {{ pilot_releases_dir }}/{{ pilot_version }}
-          /root/.local/bin/uv pip install --python {{ pilot_releases_dir }}/{{ pilot_version }}/bin/python {{ pilot_releases_dir }}/{{ pilot_version }}/pilot-{{ pilot_version }}-py3-none-any.whl
+          /home/ubuntu/.local/bin/uv venv {{ pilot_releases_dir }}/{{ pilot_version }}
+          /home/ubuntu/.local/bin/uv pip install --python {{ pilot_releases_dir }}/{{ pilot_version }}/bin/python /tmp/{{ pilot_wheel_name }}
+          rm -f /tmp/{{ pilot_wheel_name }}
       register: pilot_install
       changed_when: pilot_install.rc == 0
 
@@ -106,6 +102,25 @@
     group: "{{ pilot_group }}"
     mode: "0600"
   notify: Restart pilot
+
+- name: Initialize database schema
+  ansible.builtin.command:
+    cmd: "{{ pilot_current_link }}/bin/pilot setup init"
+  environment:
+    DATABASE_URL: "{{ pilot_database_url }}"
+    ANTHROPIC_API_KEY: "{{ pilot_anthropic_api_key }}"
+  become_user: "{{ pilot_user }}"
+  register: pilot_setup_init
+  changed_when: "'already' not in pilot_setup_init.stdout"
+
+- name: Validate configuration
+  ansible.builtin.command:
+    cmd: "{{ pilot_current_link }}/bin/pilot setup validate"
+  environment:
+    DATABASE_URL: "{{ pilot_database_url }}"
+    ANTHROPIC_API_KEY: "{{ pilot_anthropic_api_key }}"
+  become_user: "{{ pilot_user }}"
+  changed_when: false
 
 - name: Deploy systemd unit
   ansible.builtin.template:

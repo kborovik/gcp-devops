@@ -31,10 +31,18 @@ settings: ## Display settings
 clean: terraform-clean
 
 ###############################################################################
-# Ansible
+# Release Targets
 ###############################################################################
 
-.PHONY: ansible
+mailpilot-pilot-dev1:
+	$(call header,Deploy $(yellow)$(@)$(reset))
+	$(MAKE) terraform-apply google_project=$(@)
+	$(MAKE) ansible-vm-config google_project=$(@)
+	$(MAKE) pilot-deploy google_project=$(@)
+
+###############################################################################
+# Ansible
+###############################################################################
 
 ansible_dir := $(root_dir)/ansible
 ansible_user := ubuntu
@@ -56,7 +64,10 @@ ansible-inventory:
 	    echo $${dns} > $(ansible_inventory)/$$name
 	done
 
-ansible-vm-ping: ansible-inventory $(ansible_ssh_key)
+ansible-ready: ansible-inventory $(ansible_ssh_key)
+
+ansible-vm-config: ansible-ready
+	$(call header,Ansible VM Ping)
 	for i in 1 2 3 4 5; do
 		echo "Connectivity Test $$i of 5";
 		ansible all --module-name ping $(ansible_args) && break ||
@@ -68,8 +79,6 @@ ansible-vm-ping: ansible-inventory $(ansible_ssh_key)
 			sleep 6;
 		fi;
 	done
-
-ansible-vm-config: ansible-vm-ping
 	$(call header,Ansible VM Configuration)
 	ansible-playbook $(ansible_args) \
 	ansible/playbook-vm-config.yaml
@@ -80,35 +89,33 @@ ansible-clean:
 		ssh-keygen -f ~/.ssh/known_hosts -R "$$host" > /dev/null 2>&1; \
 	done
 
-ansible: ansible-vm-config ansible-clean
-
 ###############################################################################
 # Pilot App Deployment
 ###############################################################################
 
-pilot_version ?= $(shell gh release view --repo kborovik/pilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//')
-
 ANTHROPIC_API_KEY = $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null)
+GITHUB_TOKEN = $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null)
 
-deploy: ansible-inventory $(ansible_ssh_key) ## Deploy Pilot app (pilot_version=X.Y.Z)
+pilot-deploy: ansible-ready ## Deploy Pilot app (pilot_version=X.Y.Z)
+	$(eval pilot_version ?= $(shell gh release view --repo kborovik/pilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
 	@if [ -z "$(pilot_version)" ]; then \
-		echo "$(red)Error: pilot_version required. Usage: make deploy pilot_version=1.2.3$(reset)"; \
+		echo "$(red)Error: pilot_version required. Usage: make pilot-deploy pilot_version=1.2.3$(reset)"; \
 		exit 1; \
 	fi
 	$(call header,Deploy Pilot $(yellow)v$(pilot_version)$(reset) to $(yellow)$(google_project)$(reset))
 	ansible-playbook $(ansible_args) \
-		--extra-vars 'pilot_version=$(pilot_version) pilot_anthropic_api_key=$(ANTHROPIC_API_KEY)' \
+		--extra-vars 'pilot_version=$(pilot_version) pilot_anthropic_api_key=$(ANTHROPIC_API_KEY) pilot_github_token=$(GITHUB_TOKEN)' \
 		ansible/playbook-pilot-deploy.yaml
 
-rollback: ansible-inventory $(ansible_ssh_key) ## Rollback Pilot to previous release
+pilot-rollback: ansible-ready ## Rollback Pilot to previous release
 	$(call header,Rollback Pilot on $(yellow)$(google_project)$(reset))
 	ansible $(ansible_args) all -m shell -a \
-		"prev=$$(ls -1dt /opt/pilot/releases/*/ | sed -n 2p) && ln -sfn $$prev /opt/pilot/current && systemctl restart pilot && readlink /opt/pilot/current"
+		"prev=$$(ls -1dt /home/ubuntu/pilot/releases/*/ | sed -n 2p) && ln -sfn $$prev /home/ubuntu/pilot/current && systemctl restart pilot && readlink /home/ubuntu/pilot/current"
 
-pilot-status: ansible-inventory $(ansible_ssh_key) ## Check Pilot service status
+pilot-status: ansible-ready ## Check Pilot service status
 	$(call header,Pilot Status on $(yellow)$(google_project)$(reset))
 	ansible $(ansible_args) all -m shell -a \
-		"systemctl status pilot --no-pager; echo '---'; readlink /opt/pilot/current"
+		"systemctl status pilot --no-pager; echo '---'; readlink /home/ubuntu/pilot/current"
 
 ###############################################################################
 # Terraform
@@ -271,15 +278,6 @@ google-project:
 	gcloud services enable compute.googleapis.com --project=$(google_project)
 	$(MAKE) terraform-bucket
 
-###############################################################################
-# Release Targets
-###############################################################################
-
-mailpilot-pilot-dev1:
-	$(call header,Deploy $(yellow)$(@)$(reset))
-	$(MAKE) terraform-apply google_project=$(@)
-	$(MAKE) ansible-vm-config google_project=$(@)
-	$(if $(pilot_version),$(MAKE) deploy google_project=$(@) pilot_version=$(pilot_version))
 
 ###############################################################################
 # Colors and Headers
