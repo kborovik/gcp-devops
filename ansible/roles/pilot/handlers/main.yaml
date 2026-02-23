@@ -1,0 +1,6 @@
+---
+- name: Restart pilot
+  ansible.builtin.systemd:
+    name: pilot
+    state: restarted
+    daemon_reload: true
