@@ -143,15 +143,12 @@
         cmd: zfs create -o mountpoint=/home/ubuntu data/home/ubuntu
       changed_when: true
 
-    - name: Restore home directory contents
-      ansible.builtin.shell:
-        cmd: cp -an /tmp/ubuntu-home-backup/. /home/ubuntu/
+    - name: Set ownership and restore home directory
+      ansible.builtin.raw: |
+        chown ubuntu:ubuntu /home/ubuntu
+        cp -an /tmp/ubuntu-home-backup/. /home/ubuntu/
+        rm -rf /tmp/ubuntu-home-backup
       changed_when: true
-
-    - name: Clean up home backup
-      ansible.builtin.file:
-        path: /tmp/ubuntu-home-backup
-        state: absent
 
 - name: Create ZFS home datasets (fresh)
   when:
@@ -180,15 +177,12 @@
       changed_when: zfs_home_ubuntu_create.rc == 0
       failed_when: zfs_home_ubuntu_create.rc != 0
 
-    - name: Restore home directory contents
-      ansible.builtin.shell:
-        cmd: cp -an /tmp/ubuntu-home-backup/. /home/ubuntu/
+    - name: Set ownership and restore home directory
+      ansible.builtin.raw: |
+        chown ubuntu:ubuntu /home/ubuntu
+        cp -an /tmp/ubuntu-home-backup/. /home/ubuntu/
+        rm -rf /tmp/ubuntu-home-backup
       changed_when: true
-
-    - name: Clean up home backup
-      ansible.builtin.file:
-        path: /tmp/ubuntu-home-backup
-        state: absent
 
 - name: Set ZFS home dataset ownership
   ansible.builtin.file:
