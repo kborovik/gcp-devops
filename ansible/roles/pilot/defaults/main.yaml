@@ -14,10 +14,12 @@ pilot_github_repo: kborovik/pilot
 pilot_github_token: ""
 pilot_wheel_name: "pilot-{{ pilot_version }}-py3-none-any.whl"
 
-pilot_database_url: "postgresql://pilot@localhost/pilot"
+pilot_database_url: "postgresql://pilot:pilot@localhost/pilot"
 
 pilot_anthropic_api_key: ""
 pilot_pubsub_subscription: ""
 pilot_pubsub_topic: ""
+
+pilot_python_version: "3.13"
 
 pilot_keep_releases: 3

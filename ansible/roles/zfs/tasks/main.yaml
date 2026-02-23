@@ -11,8 +11,18 @@
   changed_when: false
   failed_when: false
 
-- name: Create zpool
+- name: Import existing zpool
   when: zpool_status.rc != 0
+  ansible.builtin.command:
+    cmd: zpool import -f data
+  register: zpool_import
+  changed_when: zpool_import.rc == 0
+  failed_when: false
+
+- name: Create zpool
+  when:
+    - zpool_status.rc != 0
+    - zpool_import.rc != 0
   ansible.builtin.command:
     cmd: zpool create -m none data /dev/sdb
   register: zpool_create
