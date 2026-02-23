@@ -11,8 +11,18 @@
   changed_when: false
   failed_when: false
 
-- name: Create zpool
+- name: Import existing zpool
   when: zpool_status.rc != 0
+  ansible.builtin.command:
+    cmd: zpool import -f data
+  register: zpool_import
+  changed_when: zpool_import.rc == 0
+  failed_when: false
+
+- name: Create zpool
+  when:
+    - zpool_status.rc != 0
+    - zpool_import.rc != 0
   ansible.builtin.command:
     cmd: zpool create -m none data /dev/sdb
   register: zpool_create
@@ -86,6 +96,100 @@
   register: zfs_pg_wal_create
   changed_when: zfs_pg_wal_create.rc == 0
   failed_when: zfs_pg_wal_create.rc != 0
+
+- name: Check ZFS home/ubuntu dataset
+  ansible.builtin.command:
+    cmd: zfs list -H data/home/ubuntu
+  register: zfs_home_ubuntu_status
+  changed_when: false
+  failed_when: false
+
+- name: Check old ZFS home dataset (flat)
+  when: zfs_home_ubuntu_status.rc != 0
+  ansible.builtin.command:
+    cmd: zfs list -H data/home
+  register: zfs_home_flat_status
+  changed_when: false
+  failed_when: false
+
+- name: Migrate data/home to data/home/ubuntu
+  when:
+    - zfs_home_ubuntu_status.rc != 0
+    - zfs_home_flat_status.rc == 0
+  block:
+    - name: Backup home directory before migration
+      ansible.builtin.command:
+        cmd: cp -a /home/ubuntu /tmp/ubuntu-home-backup
+      changed_when: true
+
+    - name: Unmount old data/home dataset
+      ansible.builtin.command:
+        cmd: zfs unmount data/home
+      changed_when: true
+      failed_when: false
+
+    - name: Destroy old data/home dataset
+      ansible.builtin.command:
+        cmd: zfs destroy data/home
+      changed_when: true
+
+    - name: Recreate data/home as parent (no mountpoint)
+      ansible.builtin.command:
+        cmd: zfs create -o mountpoint=none data/home
+      changed_when: true
+
+    - name: Create data/home/ubuntu dataset
+      ansible.builtin.command:
+        cmd: zfs create -o mountpoint=/home/ubuntu data/home/ubuntu
+      changed_when: true
+
+    - name: Set ownership and restore home directory
+      ansible.builtin.raw: |
+        chown ubuntu:ubuntu /home/ubuntu
+        cp -an /tmp/ubuntu-home-backup/. /home/ubuntu/
+        rm -rf /tmp/ubuntu-home-backup
+      changed_when: true
+
+- name: Create ZFS home datasets (fresh)
+  when:
+    - zfs_home_ubuntu_status.rc != 0
+    - zfs_home_flat_status is not defined or zfs_home_flat_status is skipped or zfs_home_flat_status.rc != 0
+  block:
+    - name: Backup home directory before ZFS creation
+      ansible.builtin.command:
+        cmd: cp -a /home/ubuntu /tmp/ubuntu-home-backup
+      changed_when: true
+
+    - name: Create data/home parent dataset
+      ansible.builtin.command:
+        cmd: zfs create -o mountpoint=none data/home
+      register: zfs_home_parent_create
+      changed_when: zfs_home_parent_create.rc == 0
+      failed_when: zfs_home_parent_create.rc != 0
+
+    - name: Create data/home/ubuntu dataset
+      ansible.builtin.command:
+        cmd: >-
+          zfs create
+          -o mountpoint=/home/ubuntu
+          data/home/ubuntu
+      register: zfs_home_ubuntu_create
+      changed_when: zfs_home_ubuntu_create.rc == 0
+      failed_when: zfs_home_ubuntu_create.rc != 0
+
+    - name: Set ownership and restore home directory
+      ansible.builtin.raw: |
+        chown ubuntu:ubuntu /home/ubuntu
+        cp -an /tmp/ubuntu-home-backup/. /home/ubuntu/
+        rm -rf /tmp/ubuntu-home-backup
+      changed_when: true
+
+- name: Set ZFS home dataset ownership
+  ansible.builtin.file:
+    path: /home/ubuntu
+    owner: ubuntu
+    group: ubuntu
+    state: directory
 
 - name: Check ZFS PostgreSQL WAL mountpoint
   when: zfs_pg_wal_status.rc == 0

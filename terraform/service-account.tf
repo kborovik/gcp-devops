@@ -18,6 +18,7 @@ resource "google_project_iam_member" "mailpilot" {
     "roles/monitoring.metricWriter",
     "roles/compute.instanceAdmin.v1",
     "roles/opsconfigmonitoring.resourceMetadata.writer",
+    "roles/secretmanager.secretAccessor",
   ])
 
   project    = var.google_project

@@ -1,0 +1,79 @@
+*claude.txt*  Proofreader and reviewer using Claude API
+
+Author:  Konstantin Borovik
+License: MIT
+
+==============================================================================
+CONTENTS                                                      *claude-contents*
+
+    1. Introduction .......................... |claude-introduction|
+    2. Requirements .......................... |claude-requirements|
+    3. Configuration ......................... |claude-configuration|
+    4. Commands .............................. |claude-commands|
+    5. Mappings .............................. |claude-mappings|
+
+==============================================================================
+1. INTRODUCTION                                           *claude-introduction*
+
+vim-claude is a simple plugin that uses Claude AI to proofread, review, and
+rewrite text directly in Vim. Select text, run a command, and the text is
+replaced with the corrected version.
+
+==============================================================================
+2. REQUIREMENTS                                           *claude-requirements*
+
+- Vim 8.0+ or Neovim (with |json_encode| and |json_decode| support)
+- curl
+- Anthropic API key
+
+==============================================================================
+3. CONFIGURATION                                         *claude-configuration*
+
+                                                              *g:claude_api_key*
+g:claude_api_key~
+    Your Anthropic API key. Defaults to ~/.anthropic-api-key file content
+    or $ANTHROPIC_API_KEY environment variable.
+>
+    let g:claude_api_key = 'sk-ant-...'
+<
+                                                                *g:claude_model*
+g:claude_model~
+    Claude model to use. Default: 'claude-haiku-4-5'
+>
+    let g:claude_model = 'claude-haiku-4-5'
+<
+==============================================================================
+4. COMMANDS                                                   *claude-commands*
+
+                                                              *:ClaudeProofread*
+:[range]ClaudeProofread~
+    Proofread selected text. Fixes spelling, grammar, and punctuation errors.
+    Replaces the selection with corrected text.
+
+                                                                *:ClaudeReview*
+:[range]ClaudeReview~
+    Review selected text for clarity and logical errors. Fixes unclear
+    phrasing, logical inconsistencies, and improves readability.
+    Replaces the selection with improved text.
+
+                                                               *:ClaudeRewrite*
+:[range]ClaudeRewrite~
+    Rewrite selected text to be more concise and clear while preserving
+    the original meaning. Replaces the selection with rewritten text.
+
+==============================================================================
+5. MAPPINGS                                                   *claude-mappings*
+
+Visual mode mappings (defined in vimrc):
+
+<S-F5>                                                        *claude-<S-F5>*
+    Run |:ClaudeProofread| on visual selection.
+
+<leader>sr                                                    *claude-<leader>sr*
+    Run |:ClaudeReview| on visual selection.
+
+<leader>sw                                                    *claude-<leader>sw*
+    Run |:ClaudeRewrite| on visual selection.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:

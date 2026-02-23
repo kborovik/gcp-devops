@@ -81,9 +81,7 @@ resource "google_compute_instance" "mailpilot" {
   metadata = {
     enable-osconfig         = "TRUE"
     enable-guest-attributes = "TRUE"
-    ssh-keys                = <<EOT
-    ubuntu:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8MDQfvLDhGVy6KnLSsz791MNG3hWN1W1Y8hLqadkvA ubuntu
-    EOT
+    ssh-keys                = "ubuntu:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8MDQfvLDhGVy6KnLSsz791MNG3hWN1W1Y8hLqadkvA ubuntu"
   }
 
   boot_disk {
