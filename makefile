@@ -118,6 +118,14 @@ pilot-status: ansible-ready ## Check Pilot service status
 	ansible $(ansible_args) all -m shell -a \
 		"systemctl status pilot --no-pager; echo '---'; readlink /home/ubuntu/pilot/current"
 
+gce-exec: ansible-ready ## Execute remote command (cmd="...")
+	@if [ -z "$(cmd)" ]; then \
+		echo "$(red)Error: cmd required. Usage: make gce-exec cmd='pilot setup validate'$(reset)"; \
+		exit 1; \
+	fi
+	$(call header,Execute on $(yellow)$(google_project)$(reset))
+	ansible $(ansible_args) all -m shell -a "$(cmd)"
+
 ###############################################################################
 # Terraform
 ###############################################################################

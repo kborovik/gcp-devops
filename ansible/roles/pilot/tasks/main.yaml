@@ -40,7 +40,6 @@
   loop:
     - { path: "{{ pilot_base_dir }}" }
     - { path: "{{ pilot_releases_dir }}" }
-    - { path: "{{ pilot_env_dir }}", mode: "0750" }
     - { path: "{{ pilot_log_dir }}" }
 
 - name: Check if release already installed
@@ -109,13 +108,22 @@
     state: link
   notify: Restart pilot
 
-- name: Deploy environment file
-  ansible.builtin.template:
-    src: pilot.env.j2
-    dest: "{{ pilot_env_dir }}/pilot.env"
-    owner: "{{ pilot_user }}"
-    group: "{{ pilot_group }}"
-    mode: "0600"
+- name: Configure pilot settings
+  ansible.builtin.command:
+    cmd: >-
+      {{ pilot_current_link }}/bin/pilot setup set
+      --input.key={{ item.key }}
+      --input.value={{ item.value }}
+  become_user: "{{ pilot_user }}"
+  loop:
+    - { key: database_url, value: "{{ pilot_database_url }}" }
+    - { key: google_project_id, value: "{{ gcp_project_id }}" }
+    - { key: anthropic_api_key, value: "{{ pilot_anthropic_api_key }}" }
+    - { key: google_pubsub_subscription, value: "{{ pilot_pubsub_subscription }}" }
+    - { key: google_pubsub_topic, value: "{{ pilot_pubsub_topic }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  changed_when: true
   notify: Restart pilot
 
 - name: Ensure PostgreSQL cluster is started
@@ -154,9 +162,6 @@
 - name: Initialize database schema
   ansible.builtin.command:
     cmd: "{{ pilot_current_link }}/bin/pilot setup init"
-  environment:
-    DATABASE_URL: "{{ pilot_database_url }}"
-    ANTHROPIC_API_KEY: "{{ pilot_anthropic_api_key }}"
   become_user: "{{ pilot_user }}"
   register: pilot_setup_init
   changed_when: "'already' not in pilot_setup_init.stdout"
@@ -164,9 +169,6 @@
 - name: Validate configuration
   ansible.builtin.command:
     cmd: "{{ pilot_current_link }}/bin/pilot setup validate"
-  environment:
-    DATABASE_URL: "{{ pilot_database_url }}"
-    ANTHROPIC_API_KEY: "{{ pilot_anthropic_api_key }}"
   become_user: "{{ pilot_user }}"
   changed_when: false
   failed_when: false

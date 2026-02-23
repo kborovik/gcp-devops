@@ -7,7 +7,6 @@ Requires=postgresql.service
 Type=simple
 User={{ pilot_user }}
 Group={{ pilot_group }}
-EnvironmentFile={{ pilot_env_dir }}/pilot.env
 ExecStart={{ pilot_current_link }}/bin/pilot server start
 Restart=on-failure
 RestartSec=5
