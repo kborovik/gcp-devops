@@ -97,55 +97,51 @@
   changed_when: zfs_pg_wal_create.rc == 0
   failed_when: zfs_pg_wal_create.rc != 0
 
-- name: Check ZFS home dataset
+- name: Check ZFS home/ubuntu dataset
+  ansible.builtin.command:
+    cmd: zfs list -H data/home/ubuntu
+  register: zfs_home_ubuntu_status
+  changed_when: false
+  failed_when: false
+
+- name: Check old ZFS home dataset (flat)
+  when: zfs_home_ubuntu_status.rc != 0
   ansible.builtin.command:
     cmd: zfs list -H data/home
-  register: zfs_home_status
+  register: zfs_home_flat_status
   changed_when: false
   failed_when: false
 
-- name: Check old ZFS pilot dataset
-  when: zfs_home_status.rc != 0
-  ansible.builtin.command:
-    cmd: zfs list -H data/pilot
-  register: zfs_pilot_status
-  changed_when: false
-  failed_when: false
-
-- name: Migrate data/pilot to data/home
+- name: Migrate data/home to data/home/ubuntu
   when:
-    - zfs_home_status.rc != 0
-    - zfs_pilot_status.rc == 0
+    - zfs_home_ubuntu_status.rc != 0
+    - zfs_home_flat_status.rc == 0
   block:
     - name: Backup home directory before migration
       ansible.builtin.command:
         cmd: cp -a /home/ubuntu /tmp/ubuntu-home-backup
       changed_when: true
 
-    - name: Unmount old pilot dataset
+    - name: Unmount old data/home dataset
       ansible.builtin.command:
-        cmd: zfs unmount data/pilot
+        cmd: zfs unmount data/home
       changed_when: true
       failed_when: false
 
-    - name: Rename data/pilot to data/home
+    - name: Destroy old data/home dataset
       ansible.builtin.command:
-        cmd: zfs rename data/pilot data/home
+        cmd: zfs destroy data/home
       changed_when: true
 
-    - name: Set data/home mountpoint to /home/ubuntu
+    - name: Recreate data/home as parent (no mountpoint)
       ansible.builtin.command:
-        cmd: zfs set mountpoint=/home/ubuntu data/home
+        cmd: zfs create -o mountpoint=none data/home
       changed_when: true
 
-    - name: Mount data/home
+    - name: Create data/home/ubuntu dataset
       ansible.builtin.command:
-        cmd: zfs mount data/home
-      register: zfs_mount_home
-      changed_when: zfs_mount_home.rc == 0
-      failed_when:
-        - zfs_mount_home.rc != 0
-        - "'filesystem already mounted' not in zfs_mount_home.stderr"
+        cmd: zfs create -o mountpoint=/home/ubuntu data/home/ubuntu
+      changed_when: true
 
     - name: Restore home directory contents
       ansible.builtin.shell:
@@ -157,25 +153,32 @@
         path: /tmp/ubuntu-home-backup
         state: absent
 
-- name: Create ZFS home dataset
+- name: Create ZFS home datasets (fresh)
   when:
-    - zfs_home_status.rc != 0
-    - zfs_pilot_status is not defined or zfs_pilot_status is skipped or zfs_pilot_status.rc != 0
+    - zfs_home_ubuntu_status.rc != 0
+    - zfs_home_flat_status is not defined or zfs_home_flat_status is skipped or zfs_home_flat_status.rc != 0
   block:
     - name: Backup home directory before ZFS creation
       ansible.builtin.command:
         cmd: cp -a /home/ubuntu /tmp/ubuntu-home-backup
       changed_when: true
 
-    - name: Create data/home dataset
+    - name: Create data/home parent dataset
+      ansible.builtin.command:
+        cmd: zfs create -o mountpoint=none data/home
+      register: zfs_home_parent_create
+      changed_when: zfs_home_parent_create.rc == 0
+      failed_when: zfs_home_parent_create.rc != 0
+
+    - name: Create data/home/ubuntu dataset
       ansible.builtin.command:
         cmd: >-
           zfs create
           -o mountpoint=/home/ubuntu
-          data/home
-      register: zfs_home_create
-      changed_when: zfs_home_create.rc == 0
-      failed_when: zfs_home_create.rc != 0
+          data/home/ubuntu
+      register: zfs_home_ubuntu_create
+      changed_when: zfs_home_ubuntu_create.rc == 0
+      failed_when: zfs_home_ubuntu_create.rc != 0
 
     - name: Restore home directory contents
       ansible.builtin.shell:
