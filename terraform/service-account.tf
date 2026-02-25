@@ -3,8 +3,9 @@
 ###############################################################################
 
 resource "google_service_account" "mailpilot" {
-  account_id = "mailpilot"
-  depends_on = [google_project_service.main]
+  account_id   = "mailpilot"
+  display_name = "MailPilot"
+  depends_on   = [google_project_service.main]
 }
 
 resource "google_project_iam_member" "mailpilot" {
