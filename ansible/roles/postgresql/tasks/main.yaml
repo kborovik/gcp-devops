@@ -88,6 +88,13 @@
     line: "wal_level = minimal"
   notify: Restart PostgreSQL
 
+- name: Configure max_wal_senders
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/18/main/postgresql.conf
+    regexp: "^#?max_wal_senders\\s*="
+    line: "max_wal_senders = 0"
+  notify: Restart PostgreSQL
+
 - name: Start PostgreSQL
   ansible.builtin.service:
     name: postgresql
@@ -131,6 +138,13 @@
   ansible.builtin.lineinfile:
     path: /etc/postgresql/18/main/postgresql.conf
     regexp: "^archive_mode\\s*="
+    state: absent
+  notify: Restart PostgreSQL
+
+- name: Remove archive_command from postgresql.conf
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/18/main/postgresql.conf
+    regexp: "^archive_command\\s*="
     state: absent
   notify: Restart PostgreSQL
 
