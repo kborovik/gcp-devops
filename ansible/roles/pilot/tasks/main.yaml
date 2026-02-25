@@ -148,6 +148,8 @@
     - { key: google_pubsub_topic, value: "{{ pilot_pubsub_topic }}" }
     - { key: google_application_credentials, value: "{{ pilot_base_dir }}/service-account.json" }
     - { key: log_file_path, value: "{{ pilot_log_dir }}/pilot.log" }
+    - { key: pid_file_path, value: "{{ pilot_base_dir }}/server.pid" }
+    - { key: state_directory, value: "{{ pilot_base_dir }}" }
   loop_control:
     label: "{{ item.key }}"
   changed_when: true
