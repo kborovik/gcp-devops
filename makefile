@@ -38,7 +38,7 @@ mailpilot-pilot-dev1:
 	set -e
 	$(call header,Deploy $(yellow)$(@)$(reset))
 	$(MAKE) terraform-apply google_project=$(@)
-	$(MAKE) ansible-vm-config google_project=$(@)
+	$(MAKE) pilot-configure google_project=$(@)
 	$(MAKE) pilot-deploy google_project=$(@)
 
 ###############################################################################
@@ -67,7 +67,20 @@ ansible-inventory:
 
 ansible-ready: ansible-inventory $(ansible_ssh_key)
 
-ansible-vm-config: ansible-ready
+ansible-clean:
+	$(MAKE) -C secrets clean
+	-jq -r '.ansible_hosts.value[].dns' $(terraform_dir)/output.json 2>/dev/null | while read -r host; do \
+		ssh-keygen -f ~/.ssh/known_hosts -R "$$host" > /dev/null 2>&1; \
+	done
+
+###############################################################################
+# Pilot App Deployment
+###############################################################################
+
+ANTHROPIC_API_KEY = $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null)
+GITHUB_TOKEN = $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null)
+
+pilot-configure: ansible-ready
 	$(call header,Ansible VM Ping)
 	for i in 1 2 3 4 5; do
 		echo "Connectivity Test $$i of 5";
@@ -83,19 +96,6 @@ ansible-vm-config: ansible-ready
 	$(call header,Ansible VM Configuration)
 	ansible-playbook $(ansible_args) \
 	ansible/playbook-vm-config.yaml
-
-ansible-clean:
-	$(MAKE) -C secrets clean
-	-jq -r '.ansible_hosts.value[].dns' $(terraform_dir)/output.json 2>/dev/null | while read -r host; do \
-		ssh-keygen -f ~/.ssh/known_hosts -R "$$host" > /dev/null 2>&1; \
-	done
-
-###############################################################################
-# Pilot App Deployment
-###############################################################################
-
-ANTHROPIC_API_KEY = $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null)
-GITHUB_TOKEN = $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null)
 
 pilot-deploy: ansible-ready ## Deploy Pilot app (pilot_version=X.Y.Z)
 	$(eval pilot_version ?= $(shell gh release view --repo kborovik/pilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
@@ -117,14 +117,6 @@ pilot-status: ansible-ready ## Check Pilot service status
 	$(call header,Pilot Status on $(yellow)$(google_project)$(reset))
 	ansible $(ansible_args) all -m shell -a \
 		"systemctl status pilot --no-pager; echo '---'; readlink /home/ubuntu/pilot/current"
-
-gce-exec: ansible-ready ## Execute remote command (cmd="...")
-	@if [ -z "$(cmd)" ]; then \
-		echo "$(red)Error: cmd required. Usage: make gce-exec cmd='pilot setup validate'$(reset)"; \
-		exit 1; \
-	fi
-	$(call header,Execute on $(yellow)$(google_project)$(reset))
-	ansible $(ansible_args) all -m shell -a "$(cmd)"
 
 ###############################################################################
 # Terraform
@@ -223,6 +215,14 @@ gce-stop:
 	else
 		echo "No instances found in zone $(google_zone)"
 	fi
+
+gce-exec: ansible-ready ## Execute remote command (cmd="...")
+	@if [ -z "$(cmd)" ]; then \
+		echo "$(red)Error: cmd required. Usage: make gce-exec cmd='pilot setup validate'$(reset)"; \
+		exit 1; \
+	fi
+	$(call header,Execute on $(yellow)$(google_project)$(reset))
+	ansible $(ansible_args) all -m shell -a "$(cmd)"
 
 gce-ssh: $(ansible_ssh_key) ## SSH into GCE instance
 	$(call header,SSH into GCE instance)
