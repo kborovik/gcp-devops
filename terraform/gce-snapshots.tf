@@ -15,7 +15,7 @@ resource "google_compute_resource_policy" "data_disk_snapshots" {
     }
 
     retention_policy {
-      max_retention_days    = 14
+      max_retention_days    = 3
       on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS"
     }
   }
