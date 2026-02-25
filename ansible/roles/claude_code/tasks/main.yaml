@@ -28,3 +28,19 @@
 - name: Display Claude Code version
   ansible.builtin.debug:
     msg: "Claude Code version: {{ claude_code_version.stdout }}"
+
+- name: Create Claude Code commands directory
+  ansible.builtin.file:
+    path: "{{ claude_code_home }}/.claude/commands"
+    state: directory
+    owner: "{{ claude_code_user }}"
+    group: "{{ claude_code_group }}"
+    mode: "0755"
+
+- name: Deploy Claude Code commands
+  ansible.builtin.copy:
+    src: "commands/"
+    dest: "{{ claude_code_home }}/.claude/commands/"
+    owner: "{{ claude_code_user }}"
+    group: "{{ claude_code_group }}"
+    mode: "0644"
