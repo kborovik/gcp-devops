@@ -95,6 +95,20 @@
     line: "max_wal_senders = 0"
   notify: Restart PostgreSQL
 
+- name: Configure pg_hba.conf for localhost trust
+  ansible.builtin.copy:
+    dest: /etc/postgresql/18/main/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: '0640'
+    content: |
+      # PostgreSQL Client Authentication Configuration
+      # TYPE  DATABASE  USER  ADDRESS       METHOD
+      local   all       all                 trust
+      host    all       all   127.0.0.1/32  trust
+      host    all       all   ::1/128       trust
+  notify: Restart PostgreSQL
+
 - name: Start PostgreSQL
   ansible.builtin.service:
     name: postgresql
