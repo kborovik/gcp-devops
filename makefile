@@ -49,12 +49,16 @@ ansible_dir := $(root_dir)/ansible
 ansible_user := ubuntu
 ansible_inventory := $(ansible_dir)/inventory
 ansible_ssh_key := $(secrets_dir)/ssh.key
+ansible_signing_key := $(secrets_dir)/github-signing.key
 ansible_args := --inventory $(ansible_inventory) --user $(ansible_user) --private-key $(ansible_ssh_key) --extra-vars ansible_python_interpreter='/usr/bin/python3.12'
 
 SSH_COMMON_ARGS := -o StrictHostKeyChecking=no
 ANSIBLE_HOST_KEY_CHECKING := False
 
 $(ansible_ssh_key):
+	gpg $@.gpg && chmod 600 $@
+
+$(ansible_signing_key):
 	gpg $@.gpg && chmod 600 $@
 
 ansible-inventory:
@@ -65,7 +69,7 @@ ansible-inventory:
 	    echo $${dns} > $(ansible_inventory)/$$name
 	done
 
-ansible-ready: ansible-inventory $(ansible_ssh_key)
+ansible-ready: ansible-inventory $(ansible_ssh_key) $(ansible_signing_key)
 
 ansible-clean:
 	$(MAKE) -C secrets clean
