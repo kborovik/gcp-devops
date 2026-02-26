@@ -42,6 +42,7 @@ secrets/            GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 
 ## Ansible
 
+- **YAML strings:** Always use single quotes. Never use double quotes unless the value requires YAML escape sequences (`\n`, `\t`). Escape embedded single quotes by doubling them (`''`). Leave shell commands with embedded double quotes as unquoted YAML strings.
 - VM config roles run in order: zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
 - Pilot app deployed separately via `make pilot-deploy` (uses `playbook-pilot-deploy.yaml`)
 - Inventory is auto-generated from `terraform/output.json` via `make ansible-inventory`
