@@ -1,8 +1,14 @@
 ---
 - name: Install ZFS Utils
   ansible.builtin.apt:
-    package: ["zfsutils-linux"]
+    package: ['zfsutils-linux']
     state: present
+
+- name: Limit ZFS ARC to 512 MB
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/zfs.conf
+    content: "options zfs zfs_arc_max=536870912\n"
+    mode: '0644'
 
 - name: Check zpool status
   ansible.builtin.command:
@@ -76,26 +82,6 @@
   register: zfs_pg_data_create
   changed_when: zfs_pg_data_create.rc == 0
   failed_when: zfs_pg_data_create.rc != 0
-
-- name: Check ZFS PostgreSQL WAL dataset
-  ansible.builtin.command:
-    cmd: zfs list -H data/postgresql/wal
-  register: zfs_pg_wal_status
-  changed_when: false
-  failed_when: false
-
-- name: Create ZFS PostgreSQL WAL dataset
-  when: zfs_pg_wal_status.rc != 0
-  ansible.builtin.command:
-    cmd: >-
-      zfs create
-      -o mountpoint=/var/lib/postgresql/18/wal
-      -o recordsize=128K
-      -o logbias=throughput
-      data/postgresql/wal
-  register: zfs_pg_wal_create
-  changed_when: zfs_pg_wal_create.rc == 0
-  failed_when: zfs_pg_wal_create.rc != 0
 
 - name: Check ZFS home/ubuntu dataset
   ansible.builtin.command:
@@ -190,26 +176,3 @@
     owner: ubuntu
     group: ubuntu
     state: directory
-
-- name: Check ZFS PostgreSQL WAL mountpoint
-  when: zfs_pg_wal_status.rc == 0
-  ansible.builtin.command:
-    cmd: zfs get -H -o value mountpoint data/postgresql/wal
-  register: zfs_pg_wal_mountpoint
-  changed_when: false
-
-- name: Update ZFS PostgreSQL WAL mountpoint
-  when:
-    - zfs_pg_wal_status.rc == 0
-    - zfs_pg_wal_mountpoint.stdout != '/var/lib/postgresql/18/wal'
-  block:
-    - name: Stop PostgreSQL for WAL mountpoint migration
-      ansible.builtin.service:
-        name: postgresql
-        state: stopped
-
-    - name: Set ZFS PostgreSQL WAL mountpoint
-      ansible.builtin.command:
-        cmd: zfs set mountpoint=/var/lib/postgresql/18/wal data/postgresql/wal
-      register: zfs_pg_wal_mountpoint_set
-      changed_when: zfs_pg_wal_mountpoint_set.rc == 0

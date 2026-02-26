@@ -12,9 +12,10 @@ terraform/          Terraform configs (GCS backend per project)
 ├── *.tfvars        Per-environment variables
 └── output.json     Terraform output (feeds Ansible inventory)
 ansible/
-├── playbook-vm-config.yaml   Main playbook
+├── playbook-vm-config.yaml   VM infrastructure config
+├── playbook-pilot-deploy.yaml Pilot app deployment
 ├── inventory/                Auto-generated from Terraform output
-└── roles/                    zfs → tools → postgresql → google_ops
+└── roles/                    zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
 secrets/            GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 ```
 
@@ -28,19 +29,21 @@ secrets/            GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 ## Verification
 
 - **After changing Terraform files:** run `make terraform-apply` to apply and verify changes succeed
-- **After changing Ansible files:** run `make ansible` to apply and verify changes succeed
+- **After changing Ansible VM config roles:** run `make pilot-configure` to apply and verify changes succeed
+- **After changing Pilot deployment role:** run `make pilot-deploy` to apply and verify changes succeed
 
 ## Terraform
 
 - Run `make terraform-plan` to validate and plan changes
 - Run `make terraform-apply` to apply changes
-- Target production with `google_project=mailpilot-org-prd1` (e.g. `make terraform-plan google_project=mailpilot-org-prd1`)
+- Target production with `google_project=mailpilot-pilot-prd1` (e.g. `make terraform-plan google_project=mailpilot-pilot-prd1`)
 - Default target: `mailpilot-pilot-dev1` (us-east5)
 - State stored in GCS bucket `terraform-<google_project>`
 
 ## Ansible
 
-- Roles run in order: zfs → tools → postgresql → google_ops
+- VM config roles run in order: zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
+- Pilot app deployed separately via `make pilot-deploy` (uses `playbook-pilot-deploy.yaml`)
 - Inventory is auto-generated from `terraform/output.json` via `make ansible-inventory`
 - SSH key at `secrets/ssh.key` (decrypted on-the-fly from `.gpg`)
 
@@ -49,11 +52,17 @@ secrets/            GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 - `make gce-ssh` — SSH into the GCE instance
 - `make gce-status` — List GCE instances
 - `make gce-start` / `make gce-stop` — Start/stop instances
-- `make mailpilot-pilot-dev1` — Full deploy (terraform-apply + ansible) for dev
+- `make gce-exec cmd="..."` — Run remote command on GCE instance
+- `make mailpilot-pilot-dev1` — Full deploy (terraform-apply + pilot-configure + pilot-deploy) for dev
+- `make pilot-configure` — Run VM infrastructure playbook
+- `make pilot-deploy` — Deploy Pilot app (auto-detects latest release, or `pilot_version=X.Y.Z`)
+- `make pilot-rollback` — Rollback Pilot to previous release
+- `make pilot-status` — Check Pilot service status
 
 ## Secrets
 
-- Managed via `secrets/makefile` — `make -C secrets decrypt` / `encrypt` / `clean`
+- Claude Code: use `gpg -d secrets/<file>.gpg` to decrypt, `gpg -e -r $(cat secrets/.gpg_id) -o secrets/<file>.gpg secrets/<file>` to encrypt
+- Humans: `make -C secrets decrypt` / `encrypt` / `clean`
 - GPG recipient ID in `secrets/.gpg_id`
 - `CLOUDFLARE_API_TOKEN` is decrypted at Terraform runtime from GPG
 
@@ -61,4 +70,6 @@ secrets/            GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 
 - Ansible inventory is generated from Terraform output — run `make terraform-apply` before `make ansible` on first setup
 - GCE instances have auto-stop schedules (20:00 ET daily); dev has stop-only, prod has start+stop
-- The `google_project` variable defaults to `mailpilot-pilot-dev1` — always pass it explicitly for prod
+- The `google_project` variable defaults to `mailpilot-pilot-dev1` — always pass it explicitly for prod (`mailpilot-pilot-prd1`)
+- Backups: ZFS snapshots via Sanoid (hourly/daily/weekly, local) + GCE disk snapshots (daily, 14-day retention)
+- PostgreSQL 18 with `wal_level=minimal` and `max_wal_senders=0` — no streaming replication

@@ -8,6 +8,7 @@ pilot_base_dir: /home/ubuntu/pilot
 pilot_releases_dir: "{{ pilot_base_dir }}/releases"
 pilot_current_link: "{{ pilot_base_dir }}/current"
 pilot_log_dir: "{{ pilot_base_dir }}/log"
+pilot_state_dir: "{{ pilot_base_dir }}/state"
 
 pilot_github_repo: kborovik/pilot
 pilot_github_token: ""

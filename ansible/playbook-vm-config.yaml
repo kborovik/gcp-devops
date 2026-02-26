@@ -6,6 +6,10 @@
     - role: zfs
     - role: tools
     - role: github_cli
+    - role: gpg
+      vars:
+        gpg_signing_key: "{{ playbook_dir }}/../secrets/github-signing.key"
+        gpg_user: ubuntu
     - role: postgresql
     - role: sanoid
     - role: google_ops

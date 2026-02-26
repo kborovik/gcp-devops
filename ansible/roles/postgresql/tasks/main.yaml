@@ -12,9 +12,9 @@
     repo: deb [arch=amd64] https://apt.postgresql.org/pub/repos/apt noble-pgdg main
     state: present
 
-- name: Install PostgreSQL 18 and pgBackRest
+- name: Install PostgreSQL 18
   ansible.builtin.apt:
-    package: ["postgresql-18", "pgbackrest"]
+    package: ["postgresql-18"]
     update_cache: true
     state: present
 
@@ -44,23 +44,9 @@
       register: pg_clean_data
       changed_when: pg_clean_data.rc == 0
 
-    - name: Clean ZFS WAL directory
-      ansible.builtin.command:
-        cmd: find /var/lib/postgresql/18/wal -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-      register: pg_clean_wal
-      changed_when: pg_clean_wal.rc == 0
-
     - name: Set ZFS PostgreSQL data directory ownership
       ansible.builtin.file:
         path: /var/lib/postgresql/18/main
-        owner: postgres
-        group: postgres
-        mode: "0700"
-        state: directory
-
-    - name: Set ZFS PostgreSQL WAL directory ownership
-      ansible.builtin.file:
-        path: /var/lib/postgresql/18/wal
         owner: postgres
         group: postgres
         mode: "0700"
@@ -71,86 +57,45 @@
         cmd: >-
           pg_createcluster 18 main
           --datadir=/var/lib/postgresql/18/main
-          -- --waldir=/var/lib/postgresql/18/wal
       register: pg_createcluster
       changed_when: pg_createcluster.rc == 0
 
-- name: Configure full_page_writes
+- name: Configure PostgreSQL settings
   ansible.builtin.lineinfile:
     path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?full_page_writes\\s*="
-    line: "full_page_writes = on"
+    regexp: "^#?{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    # Memory
+    - { key: shared_buffers, value: 512MB }
+    - { key: huge_pages, value: "off" }
+    - { key: effective_cache_size, value: 1GB }
+    - { key: work_mem, value: 8MB }
+    - { key: maintenance_work_mem, value: 256MB }
+    # WAL
+    - { key: wal_level, value: minimal }
+    - { key: max_wal_senders, value: 0 }
+    - { key: max_wal_size, value: 2GB }
+    - { key: full_page_writes, value: "on" }
+    - { key: synchronous_commit, value: "off" }
+    # Planner / I/O
+    - { key: random_page_cost, value: 1.1 }
+    - { key: effective_io_concurrency, value: 200 }
   notify: Restart PostgreSQL
 
-- name: Configure wal_init_zero
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?wal_init_zero\\s*="
-    line: "wal_init_zero = off"
-  notify: Restart PostgreSQL
-
-- name: Configure shared_buffers
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?shared_buffers\\s*="
-    line: "shared_buffers = 512MB"
-  notify: Restart PostgreSQL
-
-- name: Configure huge_pages
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?huge_pages\\s*="
-    line: "huge_pages = off"
-  notify: Restart PostgreSQL
-
-- name: Configure wal_level
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?wal_level\\s*="
-    line: "wal_level = replica"
-  notify: Restart PostgreSQL
-
-- name: Configure archive_mode
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?archive_mode\\s*="
-    line: "archive_mode = on"
-  notify: Restart PostgreSQL
-
-- name: Configure archive_command
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?archive_command\\s*="
-    line: "archive_command = 'pgbackrest --stanza=main archive-push %p'"
-  notify: Restart PostgreSQL
-
-- name: Fetch GCP project ID from metadata server
-  ansible.builtin.uri:
-    url: http://metadata.google.internal/computeMetadata/v1/project/project-id
-    headers:
-      Metadata-Flavor: Google
-    return_content: true
-  register: gcp_metadata
-
-- name: Set GCP project ID fact
-  ansible.builtin.set_fact:
-    gcp_project_id: "{{ gcp_metadata.content }}"
-
-- name: Create pgBackRest configuration directory
-  ansible.builtin.file:
-    path: /etc/pgbackrest
+- name: Configure pg_hba.conf for localhost trust
+  ansible.builtin.copy:
+    dest: /etc/postgresql/18/main/pg_hba.conf
     owner: postgres
     group: postgres
-    mode: "0750"
-    state: directory
-
-- name: Deploy pgBackRest configuration
-  ansible.builtin.template:
-    src: pgbackrest.conf.j2
-    dest: /etc/pgbackrest/pgbackrest.conf
-    owner: postgres
-    group: postgres
-    mode: "0640"
+    mode: '0640'
+    content: |
+      # PostgreSQL Client Authentication Configuration
+      # TYPE  DATABASE  USER  ADDRESS       METHOD
+      local   all       all                 trust
+      host    all       all   127.0.0.1/32  trust
+      host    all       all   ::1/128       trust
+  notify: Restart PostgreSQL
 
 - name: Start PostgreSQL
   ansible.builtin.service:
@@ -158,63 +103,56 @@
     state: started
     enabled: true
 
-- name: Check if pgBackRest stanza exists
-  ansible.builtin.command:
-    cmd: pgbackrest --stanza=main info
-  become: true
-  become_user: postgres
-  register: pgbackrest_info
-  changed_when: false
+# Cleanup: remove pgBackRest from existing systems
+- name: Stop and disable pgBackRest timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+    daemon_reload: false
+  loop:
+    - pgbackrest-backup.timer
+    - pgbackrest-full.timer
   failed_when: false
 
-- name: Create pgBackRest stanza
-  ansible.builtin.command:
-    cmd: pgbackrest --stanza=main stanza-create
-  become: true
-  become_user: postgres
-  when: pgbackrest_info.rc != 0
+- name: Remove pgBackRest systemd units
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}"
+    state: absent
+  loop:
+    - pgbackrest-backup.service
+    - pgbackrest-backup.timer
+    - pgbackrest-full.service
+    - pgbackrest-full.timer
+  notify: Reload systemd
 
-- name: Deploy pgBackRest diff backup service
-  ansible.builtin.template:
-    src: pgbackrest-backup.service.j2
-    dest: /etc/systemd/system/pgbackrest-backup.service
-    owner: root
-    group: root
-    mode: "0644"
+- name: Remove pgBackRest configuration directory
+  ansible.builtin.file:
+    path: /etc/pgbackrest
+    state: absent
 
-- name: Deploy pgBackRest diff backup timer
-  ansible.builtin.template:
-    src: pgbackrest-backup.timer.j2
-    dest: /etc/systemd/system/pgbackrest-backup.timer
-    owner: root
-    group: root
-    mode: "0644"
+- name: Remove pgbackrest package
+  ansible.builtin.apt:
+    package: ["pgbackrest"]
+    state: absent
 
-- name: Deploy pgBackRest full backup service
-  ansible.builtin.template:
-    src: pgbackrest-full.service.j2
-    dest: /etc/systemd/system/pgbackrest-full.service
-    owner: root
-    group: root
-    mode: "0644"
+- name: Remove archive_mode from postgresql.conf
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/18/main/postgresql.conf
+    regexp: "^archive_mode\\s*="
+    state: absent
+  notify: Restart PostgreSQL
 
-- name: Deploy pgBackRest full backup timer
-  ansible.builtin.template:
-    src: pgbackrest-full.timer.j2
-    dest: /etc/systemd/system/pgbackrest-full.timer
-    owner: root
-    group: root
-    mode: "0644"
+- name: Remove archive_command from postgresql.conf
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/18/main/postgresql.conf
+    regexp: "^archive_command\\s*="
+    state: absent
+  notify: Restart PostgreSQL
 
-- name: Enable pgBackRest diff backup timer
-  ansible.builtin.systemd:
-    name: pgbackrest-backup.timer
-    enabled: true
-    state: started
-    daemon_reload: true
-
-- name: Enable pgBackRest full backup timer
-  ansible.builtin.systemd:
-    name: pgbackrest-full.timer
-    enabled: true
-    state: started
+- name: Remove wal_init_zero from postgresql.conf
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/18/main/postgresql.conf
+    regexp: "^wal_init_zero\\s*="
+    state: absent
+  notify: Restart PostgreSQL
