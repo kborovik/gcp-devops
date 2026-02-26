@@ -1,8 +1,0 @@
-[Unit]
-Description=pgBackRest full backup
-After=postgresql.service
-
-[Service]
-Type=oneshot
-User=postgres
-ExecStart=pgbackrest --stanza=main --type=full backup
