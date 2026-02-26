@@ -60,39 +60,27 @@
       register: pg_createcluster
       changed_when: pg_createcluster.rc == 0
 
-- name: Configure full_page_writes
+- name: Configure PostgreSQL settings
   ansible.builtin.lineinfile:
     path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?full_page_writes\\s*="
-    line: "full_page_writes = on"
-  notify: Restart PostgreSQL
-
-- name: Configure shared_buffers
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?shared_buffers\\s*="
-    line: "shared_buffers = 512MB"
-  notify: Restart PostgreSQL
-
-- name: Configure huge_pages
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?huge_pages\\s*="
-    line: "huge_pages = off"
-  notify: Restart PostgreSQL
-
-- name: Configure wal_level
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?wal_level\\s*="
-    line: "wal_level = minimal"
-  notify: Restart PostgreSQL
-
-- name: Configure max_wal_senders
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?max_wal_senders\\s*="
-    line: "max_wal_senders = 0"
+    regexp: "^#?{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    # Memory
+    - { key: shared_buffers, value: 512MB }
+    - { key: huge_pages, value: "off" }
+    - { key: effective_cache_size, value: 1GB }
+    - { key: work_mem, value: 8MB }
+    - { key: maintenance_work_mem, value: 256MB }
+    # WAL
+    - { key: wal_level, value: minimal }
+    - { key: max_wal_senders, value: 0 }
+    - { key: max_wal_size, value: 2GB }
+    - { key: full_page_writes, value: "on" }
+    - { key: synchronous_commit, value: "off" }
+    # Planner / I/O
+    - { key: random_page_cost, value: 1.1 }
+    - { key: effective_io_concurrency, value: 200 }
   notify: Restart PostgreSQL
 
 - name: Configure pg_hba.conf for localhost trust
