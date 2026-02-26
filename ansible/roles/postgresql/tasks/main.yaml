@@ -14,7 +14,7 @@
 
 - name: Install PostgreSQL 18
   ansible.builtin.apt:
-    package: ["postgresql-18"]
+    package: ['postgresql-18']
     update_cache: true
     state: present
 
@@ -49,7 +49,7 @@
         path: /var/lib/postgresql/18/main
         owner: postgres
         group: postgres
-        mode: "0700"
+        mode: '0700'
         state: directory
 
     - name: Create PostgreSQL cluster on ZFS
@@ -63,12 +63,12 @@
 - name: Configure PostgreSQL settings
   ansible.builtin.lineinfile:
     path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^#?{{ item.key }}\\s*="
-    line: "{{ item.key }} = {{ item.value }}"
+    regexp: '^#?{{ item.key }}\s*='
+    line: '{{ item.key }} = {{ item.value }}'
   loop:
     # Memory
     - { key: shared_buffers, value: 512MB }
-    - { key: huge_pages, value: "off" }
+    - { key: huge_pages, value: 'off' }
     - { key: effective_cache_size, value: 1GB }
     - { key: work_mem, value: 8MB }
     - { key: maintenance_work_mem, value: 256MB }
@@ -76,8 +76,8 @@
     - { key: wal_level, value: minimal }
     - { key: max_wal_senders, value: 0 }
     - { key: max_wal_size, value: 2GB }
-    - { key: full_page_writes, value: "on" }
-    - { key: synchronous_commit, value: "off" }
+    - { key: full_page_writes, value: 'on' }
+    - { key: synchronous_commit, value: 'off' }
     # Planner / I/O
     - { key: random_page_cost, value: 1.1 }
     - { key: effective_io_concurrency, value: 200 }
@@ -106,7 +106,7 @@
 # Cleanup: remove pgBackRest from existing systems
 - name: Stop and disable pgBackRest timers
   ansible.builtin.systemd:
-    name: "{{ item }}"
+    name: '{{ item }}'
     enabled: false
     state: stopped
     daemon_reload: false
@@ -117,7 +117,7 @@
 
 - name: Remove pgBackRest systemd units
   ansible.builtin.file:
-    path: "/etc/systemd/system/{{ item }}"
+    path: '/etc/systemd/system/{{ item }}'
     state: absent
   loop:
     - pgbackrest-backup.service
@@ -133,26 +133,26 @@
 
 - name: Remove pgbackrest package
   ansible.builtin.apt:
-    package: ["pgbackrest"]
+    package: ['pgbackrest']
     state: absent
 
 - name: Remove archive_mode from postgresql.conf
   ansible.builtin.lineinfile:
     path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^archive_mode\\s*="
+    regexp: '^archive_mode\s*='
     state: absent
   notify: Restart PostgreSQL
 
 - name: Remove archive_command from postgresql.conf
   ansible.builtin.lineinfile:
     path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^archive_command\\s*="
+    regexp: '^archive_command\s*='
     state: absent
   notify: Restart PostgreSQL
 
 - name: Remove wal_init_zero from postgresql.conf
   ansible.builtin.lineinfile:
     path: /etc/postgresql/18/main/postgresql.conf
-    regexp: "^wal_init_zero\\s*="
+    regexp: '^wal_init_zero\s*='
     state: absent
   notify: Restart PostgreSQL

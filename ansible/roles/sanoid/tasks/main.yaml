@@ -1,7 +1,7 @@
 ---
 - name: Install sanoid
   ansible.builtin.apt:
-    package: ["sanoid"]
+    package: ['sanoid']
     update_cache: true
     state: present
 
@@ -10,7 +10,7 @@
     path: /etc/sanoid
     owner: root
     group: root
-    mode: "0755"
+    mode: '0755'
     state: directory
 
 - name: Deploy sanoid configuration
@@ -19,11 +19,10 @@
     dest: /etc/sanoid/sanoid.conf
     owner: root
     group: root
-    mode: "0644"
+    mode: '0644'
 
 - name: Enable sanoid snapshot timer
   ansible.builtin.systemd:
     name: sanoid.timer
     enabled: true
     state: started
-
