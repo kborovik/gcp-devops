@@ -25,3 +25,9 @@ variable "allow_sa_key_creation" {
   type        = bool
   default     = false
 }
+
+variable "allow_external_iam_members" {
+  description = "Override org policy to allow IAM members from outside the organization (required for Gmail push notifications)"
+  type        = bool
+  default     = false
+}
