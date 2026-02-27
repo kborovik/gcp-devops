@@ -10,16 +10,17 @@ resource "google_service_account" "mailpilot" {
 
 resource "google_project_iam_member" "mailpilot" {
   for_each = toset([
-    "roles/pubsub.admin",
-    "roles/logging.viewer",
     "roles/aiplatform.user",
-    "roles/consumerprocurement.entitlementManager",
-    "roles/logging.logWriter",
-    "roles/storage.objectViewer",
-    "roles/monitoring.metricWriter",
     "roles/compute.instanceAdmin.v1",
+    "roles/consumerprocurement.entitlementManager",
+    "roles/iam.serviceAccountTokenCreator",
+    "roles/logging.logWriter",
+    "roles/logging.viewer",
+    "roles/monitoring.metricWriter",
     "roles/opsconfigmonitoring.resourceMetadata.writer",
+    "roles/pubsub.admin",
     "roles/secretmanager.secretAccessor",
+    "roles/storage.objectViewer",
   ])
 
   project    = var.google_project
