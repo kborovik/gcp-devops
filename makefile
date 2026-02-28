@@ -22,11 +22,14 @@ git_root := $(shell git rev-parse --show-toplevel)
 root_dir := $(git_root)
 secrets_dir := $(root_dir)/secrets
 
+config_dir := $(root_dir)/config/$(google_project)
+
 settings: ## Display settings
 	$(call header,Settings)
 	$(call var,google_project,$(google_project))
 	$(call var,google_region,$(google_region))
 	$(call var,google_zone,$(google_zone))
+	$(call var,config_dir,$(config_dir))
 
 clean: terraform-clean
 
@@ -47,7 +50,7 @@ mailpilot-pilot-dev1:
 
 ansible_dir := $(root_dir)/ansible
 ansible_user := ubuntu
-ansible_inventory := $(ansible_dir)/inventory
+ansible_inventory := $(config_dir)/ansible/inventory
 ansible_ssh_key := $(secrets_dir)/ssh.key
 ansible_signing_key := $(secrets_dir)/github-signing.key
 ansible_args := --inventory $(ansible_inventory) --user $(ansible_user) --private-key $(ansible_ssh_key) --extra-vars ansible_python_interpreter='/usr/bin/python3.12'
@@ -63,8 +66,8 @@ $(ansible_signing_key):
 
 ansible-inventory:
 	$(call header,Ansible Inventory)
-	-rm -rf $(ansible_inventory)/*
-	jq -r '.ansible_hosts.value[] | "\(.name) \(.dns) \(.ip)"' $(terraform_dir)/output.json | while read -r name dns ip; do
+	find $(ansible_inventory) -maxdepth 1 -type f ! -name '.gitignore' -delete
+	jq -r '.ansible_hosts.value[] | "\(.name) \(.dns) \(.ip)"' $(terraform_output) | while read -r name dns ip; do
 	    echo "$(green)Creating inventory file for $(yellow)$${dns} in zone $(google_zone)"
 	    echo $${dns} > $(ansible_inventory)/$$name
 	done
@@ -73,7 +76,7 @@ ansible-ready: ansible-inventory $(ansible_ssh_key) $(ansible_signing_key)
 
 ansible-clean:
 	$(MAKE) -C secrets clean
-	-jq -r '.ansible_hosts.value[].dns' $(terraform_dir)/output.json 2>/dev/null | while read -r host; do \
+	-jq -r '.ansible_hosts.value[].dns' $(terraform_output) 2>/dev/null | while read -r host; do \
 		ssh-keygen -f ~/.ssh/known_hosts -R "$$host" > /dev/null 2>&1; \
 	done
 
@@ -129,8 +132,8 @@ pilot-status: ansible-ready ## Check Pilot service status
 .PHONY: terraform
 
 terraform_dir := $(root_dir)/terraform
-terraform_tfvars := $(terraform_dir)/$(google_project).tfvars
-terraform_output := $(terraform_dir)/$(google_project).json
+terraform_tfvars := $(config_dir)/terraform.tfvars
+terraform_output := $(config_dir)/terraform-output.json
 terraform_bucket := terraform-$(google_project)
 
 CLOUDFLARE_API_TOKEN = $(shell gpg -d $(secrets_dir)/CLOUDFLARE_API_TOKEN.gpg 2>/dev/null)
@@ -165,7 +168,7 @@ terraform-apply: terraform-validate
 	$(call header,Run Terraform Apply)
 	set -e
 	terraform -chdir=$(terraform_dir) apply -auto-approve -input=false -var-file="$(terraform_tfvars)"
-	terraform -chdir=$(terraform_dir) output -no-color -json >| $(terraform_dir)/output.json
+	terraform -chdir=$(terraform_dir) output -no-color -json >| $(terraform_output)
 
 terraform-destroy: terraform-validate
 	$(call header,Run Terraform Apply)
@@ -230,7 +233,7 @@ gce-exec: ansible-ready ## Execute remote command (cmd="...")
 
 gce-ssh: $(ansible_ssh_key) ## SSH into GCE instance
 	$(call header,SSH into GCE instance)
-	ssh $(SSH_COMMON_ARGS) -i $(ansible_ssh_key) $(ansible_user)@$(shell jq -r '.ansible_hosts.value[0].dns' $(terraform_dir)/output.json)
+	ssh $(SSH_COMMON_ARGS) -i $(ansible_ssh_key) $(ansible_user)@$(shell jq -r '.ansible_hosts.value[0].dns' $(terraform_output))
 
 gce-delete:
 	$(call header,Delete Google Compute Engine instances)

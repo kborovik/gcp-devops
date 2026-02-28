@@ -7,16 +7,19 @@ Google Cloud infrastructure for MailPilot. Terraform provisions GCE instances, n
 ## Architecture
 
 ```
-terraform/          Terraform configs (GCS backend per project)
-├── *.tf            Resource definitions
-├── *.tfvars        Per-environment variables
-└── output.json     Terraform output (feeds Ansible inventory)
+config/<project>/                 Per-project configuration
+├── terraform.tfvars              Terraform variables
+├── terraform-output.json         Terraform output (generated)
+└── ansible/inventory/            Ansible inventory + group_vars
+    ├── group_vars/all.yaml       Per-project Ansible overrides
+    └── <host files>              Auto-generated from Terraform output
+terraform/                        Terraform configs (GCS backend per project)
+└── *.tf                          Resource definitions
 ansible/
-├── playbook-vm-config.yaml   VM infrastructure config
-├── playbook-pilot-deploy.yaml Pilot app deployment
-├── inventory/                Auto-generated from Terraform output
-└── roles/                    zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
-secrets/            GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
+├── playbook-vm-config.yaml       VM infrastructure config
+├── playbook-pilot-deploy.yaml    Pilot app deployment
+└── roles/                        zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
+secrets/                          GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 ```
 
 ## Prerequisites
@@ -45,7 +48,8 @@ secrets/            GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 - **YAML strings:** Always use single quotes. Never use double quotes unless the value requires YAML escape sequences (`\n`, `\t`). Escape embedded single quotes by doubling them (`''`). Leave shell commands with embedded double quotes as unquoted YAML strings.
 - VM config roles run in order: zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
 - Pilot app deployed separately via `make pilot-deploy` (uses `playbook-pilot-deploy.yaml`)
-- Inventory is auto-generated from `terraform/output.json` via `make ansible-inventory`
+- Inventory is auto-generated from `config/<project>/terraform-output.json` via `make ansible-inventory`
+- Per-project overrides live in `config/<project>/ansible/inventory/group_vars/all.yaml` (Ansible group_vars > role defaults)
 - SSH key at `secrets/ssh.key` (decrypted on-the-fly from `.gpg`)
 
 ## Operations
@@ -69,7 +73,8 @@ secrets/            GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 
 ## Gotchas
 
-- Ansible inventory is generated from Terraform output — run `make terraform-apply` before `make ansible` on first setup
+- Ansible inventory is generated from Terraform output — run `make terraform-apply` before `make pilot-configure` on first setup
+- Per-project configs (tfvars, inventory, group_vars) live in `config/<project>/` — never in `terraform/` or `ansible/`
 - GCE instances have auto-stop schedules (20:00 ET daily); dev has stop-only, prod has start+stop
 - The `google_project` variable defaults to `mailpilot-pilot-dev1` — always pass it explicitly for prod (`mailpilot-pilot-prd1`)
 - Backups: ZFS snapshots via Sanoid (hourly/daily/weekly, local) + GCE disk snapshots (daily, 14-day retention)
