@@ -34,10 +34,6 @@ Merge the current branch's PR into main with a detailed, release-note-ready comm
      - `gh pr view --json mergeable` — merge conflicts
      - `gh pr view --json reviewDecision` — review approval
      - `gh pr view --json isDraft` — draft status
-   - Run mandatory local gates (must both pass before proceeding):
-     - `make check` — code quality (linting, formatting, types)
-   - If either gate fails, inform user of failures and exit
-   - If draft and all gates pass, ask user if they want to mark it ready: `gh pr ready`
    - If not ready (failing checks, unresolved conflicts, missing reviews), inform user of blockers and exit
 
 3. **Analyze the changes:**

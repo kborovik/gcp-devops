@@ -16,6 +16,9 @@ pilot_database_url: 'postgresql://ubuntu@localhost/pilot'
 
 pilot_anthropic_api_key: ''
 
+pilot_test_inbound_email: ''
+pilot_test_outbound_email: ''
+
 pilot_python_version: '3.13'
 
 pilot_keep_releases: 3
