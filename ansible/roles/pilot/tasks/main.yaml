@@ -114,23 +114,6 @@
     state: link
     force: true
 
-- name: Download service account key from Secret Manager
-  ansible.builtin.shell:
-    cmd: >-
-      gcloud secrets versions access latest
-      --secret=mailpilot-key
-      --project={{ gcp_project_id }}
-      | base64 -d
-      > {{ pilot_base_dir }}/service-account.json
-    creates: '{{ pilot_base_dir }}/service-account.json'
-  become_user: '{{ pilot_user }}'
-
-- name: Set service account key permissions
-  ansible.builtin.file:
-    path: '{{ pilot_base_dir }}/service-account.json'
-    owner: '{{ pilot_user }}'
-    group: '{{ pilot_group }}'
-    mode: '0600'
 
 - name: Configure pilot settings
   ansible.builtin.command:
@@ -143,15 +126,6 @@
     - { key: database_url, value: '{{ pilot_database_url }}' }
     - { key: google_project_id, value: '{{ gcp_project_id }}' }
     - { key: anthropic_api_key, value: '{{ pilot_anthropic_api_key }}' }
-    - {
-        key: google_pubsub_subscription,
-        value: '{{ pilot_pubsub_subscription }}',
-      }
-    - { key: google_pubsub_topic, value: '{{ pilot_pubsub_topic }}' }
-    - {
-        key: google_application_credentials,
-        value: '{{ pilot_base_dir }}/service-account.json',
-      }
   loop_control:
     label: '{{ item.key }}'
   changed_when: true

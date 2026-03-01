@@ -7,7 +7,6 @@ Requires=postgresql.service
 Type=simple
 User={{ pilot_user }}
 Group={{ pilot_group }}
-Environment=GOOGLE_APPLICATION_CREDENTIALS={{ pilot_base_dir }}/service-account.json
 ExecStart={{ pilot_current_link }}/bin/pilot server start
 Restart=on-failure
 RestartSec=5
