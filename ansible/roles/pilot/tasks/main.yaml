@@ -40,8 +40,6 @@
   loop:
     - { path: '{{ pilot_base_dir }}' }
     - { path: '{{ pilot_releases_dir }}' }
-    - { path: '{{ pilot_log_dir }}' }
-    - { path: '{{ pilot_state_dir }}' }
 
 - name: Check if release already installed
   ansible.builtin.stat:
@@ -154,9 +152,6 @@
         key: google_application_credentials,
         value: '{{ pilot_base_dir }}/service-account.json',
       }
-    - { key: log_file_path, value: '{{ pilot_log_dir }}/pilot.log' }
-    - { key: pid_file_path, value: '{{ pilot_base_dir }}/server.pid' }
-    - { key: state_directory, value: '{{ pilot_state_dir }}' }
   loop_control:
     label: '{{ item.key }}'
   changed_when: true
