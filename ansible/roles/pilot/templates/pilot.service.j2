@@ -8,8 +8,11 @@ Type=simple
 User={{ pilot_user }}
 Group={{ pilot_group }}
 ExecStart={{ pilot_current_link }}/bin/pilot server start
+KillMode=control-group
 Restart=on-failure
 RestartSec=5
+StandardOutput=append:{{ pilot_state_dir }}/server.log
+StandardError=append:{{ pilot_state_dir }}/server.log
 
 [Install]
 WantedBy=multi-user.target

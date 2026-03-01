@@ -5,6 +5,25 @@
       - pilot_version | length > 0
     fail_msg: "pilot_version must be set (e.g. --extra-vars 'pilot_version=1.2.3')"
 
+- name: Check if pilot service exists
+  ansible.builtin.command:
+    cmd: systemctl list-unit-files pilot.service
+  register: pilot_service_exists
+  changed_when: false
+  failed_when: false
+
+- name: Stop pilot service
+  ansible.builtin.systemd:
+    name: pilot
+    state: stopped
+  when: "'pilot.service' in pilot_service_exists.stdout"
+
+- name: Kill orphaned pilot processes
+  ansible.builtin.shell:
+    cmd: pkill -f '[p]ilot server start' || true
+    executable: /bin/bash
+  changed_when: false
+
 - name: Fetch GCP project ID from metadata server
   ansible.builtin.uri:
     url: http://metadata.google.internal/computeMetadata/v1/project/project-id
@@ -40,6 +59,7 @@
   loop:
     - { path: '{{ pilot_base_dir }}' }
     - { path: '{{ pilot_releases_dir }}' }
+    - { path: '{{ pilot_state_dir }}' }
 
 - name: Check if release already installed
   ansible.builtin.stat:
