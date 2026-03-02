@@ -13,4 +13,3 @@
     - role: postgresql
     - role: sanoid
     - role: google_ops
-    - role: claude_code
