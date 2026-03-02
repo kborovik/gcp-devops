@@ -44,3 +44,19 @@
     owner: '{{ claude_code_user }}'
     group: '{{ claude_code_group }}'
     mode: '0644'
+
+- name: Create Claude Code skills directory
+  ansible.builtin.file:
+    path: '{{ claude_code_home }}/.claude/skills'
+    state: directory
+    owner: '{{ claude_code_user }}'
+    group: '{{ claude_code_group }}'
+    mode: '0755'
+
+- name: Deploy Claude Code skills
+  ansible.builtin.copy:
+    src: 'skills/'
+    dest: '{{ claude_code_home }}/.claude/skills/'
+    owner: '{{ claude_code_user }}'
+    group: '{{ claude_code_group }}'
+    mode: '0644'

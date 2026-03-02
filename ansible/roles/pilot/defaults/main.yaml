@@ -7,8 +7,7 @@ pilot_group: ubuntu
 pilot_base_dir: /home/ubuntu/pilot
 pilot_releases_dir: '{{ pilot_base_dir }}/releases'
 pilot_current_link: '{{ pilot_base_dir }}/current'
-pilot_log_dir: '{{ pilot_base_dir }}/log'
-pilot_state_dir: '{{ pilot_base_dir }}/state'
+pilot_state_dir: '/home/{{ pilot_user }}/.local/state/pilot'
 
 pilot_github_repo: kborovik/pilot
 pilot_github_token: ''
@@ -17,8 +16,9 @@ pilot_wheel_name: 'pilot-{{ pilot_version }}-py3-none-any.whl'
 pilot_database_url: 'postgresql://ubuntu@localhost/pilot'
 
 pilot_anthropic_api_key: ''
-pilot_pubsub_subscription: 'pilot-watch'
-pilot_pubsub_topic: 'gmail-watch'
+
+pilot_test_inbound_email: ''
+pilot_test_outbound_email: ''
 
 pilot_python_version: '3.13'
 

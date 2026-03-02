@@ -7,12 +7,13 @@ Requires=postgresql.service
 Type=simple
 User={{ pilot_user }}
 Group={{ pilot_group }}
-Environment=GOOGLE_APPLICATION_CREDENTIALS={{ pilot_base_dir }}/service-account.json
 ExecStart={{ pilot_current_link }}/bin/pilot server start
+KillMode=control-group
+TimeoutStopSec=10
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:{{ pilot_log_dir }}/pilot.log
-StandardError=append:{{ pilot_log_dir }}/pilot.log
+StandardOutput=append:{{ pilot_state_dir }}/server.log
+StandardError=append:{{ pilot_state_dir }}/server.log
 
 [Install]
 WantedBy=multi-user.target

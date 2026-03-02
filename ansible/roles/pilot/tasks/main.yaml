@@ -3,7 +3,7 @@
   ansible.builtin.assert:
     that:
       - pilot_version | length > 0
-    fail_msg: 'pilot_version must be set (e.g. --extra-vars ''pilot_version=1.2.3'')'
+    fail_msg: "pilot_version must be set (e.g. --extra-vars 'pilot_version=1.2.3')"
 
 - name: Fetch GCP project ID from metadata server
   ansible.builtin.uri:
@@ -28,19 +28,18 @@
     cmd: /home/ubuntu/.local/bin/uv python install {{ pilot_python_version }}
   become_user: '{{ pilot_user }}'
   register: uv_python_install
-  changed_when: '''Installed'' in uv_python_install.stderr'
+  changed_when: "'Installed' in uv_python_install.stderr"
 
 - name: Create directory structure
   ansible.builtin.file:
     path: '{{ item.path }}'
     owner: '{{ item.owner | default(pilot_user) }}'
     group: '{{ item.group | default(pilot_group) }}'
-    mode: '{{ item.mode | default(''0755'') }}'
+    mode: "{{ item.mode | default('0755') }}"
     state: directory
   loop:
     - { path: '{{ pilot_base_dir }}' }
     - { path: '{{ pilot_releases_dir }}' }
-    - { path: '{{ pilot_log_dir }}' }
     - { path: '{{ pilot_state_dir }}' }
 
 - name: Check if release already installed
@@ -69,7 +68,7 @@
 
     - name: Download wheel from GitHub releases
       ansible.builtin.get_url:
-        url: '{{ (pilot_release_info.json.assets | selectattr(''name'', ''equalto'', pilot_wheel_name) | first).url }}'
+        url: "{{ (pilot_release_info.json.assets | selectattr('name', 'equalto', pilot_wheel_name) | first).url }}"
         dest: '/tmp/{{ pilot_wheel_name }}'
         headers:
           Authorization: 'Bearer {{ pilot_github_token }}'
@@ -116,24 +115,6 @@
     state: link
     force: true
 
-- name: Download service account key from Secret Manager
-  ansible.builtin.shell:
-    cmd: >-
-      gcloud secrets versions access latest
-      --secret=mailpilot-key
-      --project={{ gcp_project_id }}
-      | base64 -d
-      > {{ pilot_base_dir }}/service-account.json
-    creates: '{{ pilot_base_dir }}/service-account.json'
-  become_user: '{{ pilot_user }}'
-
-- name: Set service account key permissions
-  ansible.builtin.file:
-    path: '{{ pilot_base_dir }}/service-account.json'
-    owner: '{{ pilot_user }}'
-    group: '{{ pilot_group }}'
-    mode: '0600'
-
 - name: Configure pilot settings
   ansible.builtin.command:
     cmd: >-
@@ -145,18 +126,8 @@
     - { key: database_url, value: '{{ pilot_database_url }}' }
     - { key: google_project_id, value: '{{ gcp_project_id }}' }
     - { key: anthropic_api_key, value: '{{ pilot_anthropic_api_key }}' }
-    - {
-        key: google_pubsub_subscription,
-        value: '{{ pilot_pubsub_subscription }}',
-      }
-    - { key: google_pubsub_topic, value: '{{ pilot_pubsub_topic }}' }
-    - {
-        key: google_application_credentials,
-        value: '{{ pilot_base_dir }}/service-account.json',
-      }
-    - { key: log_file_path, value: '{{ pilot_log_dir }}/pilot.log' }
-    - { key: pid_file_path, value: '{{ pilot_base_dir }}/server.pid' }
-    - { key: state_directory, value: '{{ pilot_state_dir }}' }
+    - { key: test_inbound_email, value: '{{ pilot_test_inbound_email }}' }
+    - { key: test_outbound_email, value: '{{ pilot_test_outbound_email }}' }
   loop_control:
     label: '{{ item.key }}'
   changed_when: true
@@ -213,7 +184,7 @@
     cmd: '{{ pilot_current_link }}/bin/pilot setup init'
   become_user: '{{ pilot_user }}'
   register: pilot_setup_init
-  changed_when: '''already'' not in pilot_setup_init.stdout'
+  changed_when: "'already' not in pilot_setup_init.stdout"
 
 - name: Validate configuration
   ansible.builtin.command:
@@ -232,11 +203,10 @@
     mode: '0644'
   notify: Restart pilot
 
-- name: Enable and start pilot service
+- name: Enable pilot service
   ansible.builtin.systemd:
     name: pilot
     enabled: true
-    state: started
     daemon_reload: true
 
 - name: List existing releases
@@ -249,5 +219,5 @@
   ansible.builtin.file:
     path: '{{ item.path }}'
     state: absent
-  loop: '{{ (pilot_existing_releases.files | sort(attribute=''mtime'') | reverse)[pilot_keep_releases:] }}'
+  loop: "{{ (pilot_existing_releases.files | sort(attribute='mtime') | reverse)[pilot_keep_releases:] }}"
   when: pilot_existing_releases.files | length > pilot_keep_releases
