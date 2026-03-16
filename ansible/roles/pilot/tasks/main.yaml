@@ -133,7 +133,7 @@
 
 - name: Ensure PostgreSQL cluster is started
   ansible.builtin.command:
-    cmd: pg_ctlcluster 18 main start
+    cmd: /usr/bin/pg_ctlcluster 18 main start
   register: pg_start
   changed_when: pg_start.rc == 0 and 'already running' not in (pg_start.stderr | default(''))
   failed_when: pg_start.rc != 0 and 'already running' not in (pg_start.stderr | default(''))
