@@ -11,7 +11,7 @@ default: help
 ###############################################################################
 
 google_project ?= mailpilot-pilot-dev1
-google_region ?= us-east5
+google_region ?= us-east1
 google_zone ?= $(google_region)-b
 
 ###############################################################################

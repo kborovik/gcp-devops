@@ -17,7 +17,7 @@ variable "google_region" {
 variable "gce_machine_type" {
   description = "Machine type for the GCE instance"
   type        = string
-  default     = "e2-medium"
+  default     = "t2d-standard-1"
 }
 
 variable "gce_schedule" {
@@ -31,4 +31,3 @@ variable "allow_sa_key_creation" {
   type        = bool
   default     = false
 }
-

@@ -54,7 +54,7 @@ resource "google_compute_disk" "mailpilot_data" {
   depends_on = [google_project_service.main]
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 
