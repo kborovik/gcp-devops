@@ -3,7 +3,6 @@
 ###############################################################################
 
 resource "google_org_policy_policy" "allow_external_iam_members" {
-  count  = var.allow_external_iam_members ? 1 : 0
   name   = "projects/${var.google_project}/policies/iam.allowedPolicyMemberDomains"
   parent = "projects/${var.google_project}"
 

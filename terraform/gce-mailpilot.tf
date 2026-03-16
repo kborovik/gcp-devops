@@ -70,11 +70,12 @@ resource "google_compute_address" "mailpilot_ipv4" {
 
 resource "google_compute_instance" "mailpilot" {
   name                      = "mailpilot-1"
-  machine_type              = "e2-medium"
+  machine_type              = var.gce_machine_type
   zone                      = "${var.google_region}-b"
+  desired_status            = "RUNNING"
   allow_stopping_for_update = true
 
-  resource_policies = [
+  resource_policies = var.gce_schedule == "none" ? [] : [
     var.gce_schedule == "stop_only" ? google_compute_resource_policy.mailpilot_stop_only.id : google_compute_resource_policy.mailpilot_stop_start.id
   ]
 

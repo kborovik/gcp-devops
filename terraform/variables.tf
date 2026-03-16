@@ -14,6 +14,12 @@ variable "google_region" {
   default     = null
 }
 
+variable "gce_machine_type" {
+  description = "Machine type for the GCE instance"
+  type        = string
+  default     = "e2-medium"
+}
+
 variable "gce_schedule" {
   description = "Schedule for GCE instances"
   type        = string
@@ -26,8 +32,3 @@ variable "allow_sa_key_creation" {
   default     = false
 }
 
-variable "allow_external_iam_members" {
-  description = "Override org policy to allow IAM members from outside the organization (required for Gmail push notifications)"
-  type        = bool
-  default     = false
-}

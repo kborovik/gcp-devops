@@ -126,8 +126,6 @@
     - { key: database_url, value: '{{ pilot_database_url }}' }
     - { key: google_project_id, value: '{{ gcp_project_id }}' }
     - { key: anthropic_api_key, value: '{{ pilot_anthropic_api_key }}' }
-    - { key: test_inbound_email, value: '{{ pilot_test_inbound_email }}' }
-    - { key: test_outbound_email, value: '{{ pilot_test_outbound_email }}' }
   loop_control:
     label: '{{ item.key }}'
   changed_when: true
