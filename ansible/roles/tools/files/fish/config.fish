@@ -118,9 +118,4 @@ if status is-interactive
         end
     end
 
-    function clai --description 'Pydantic AI CLI'
-        set -x ANTHROPIC_API_KEY $(pass anthropic/ANTHROPIC_API_KEY)
-        uvx clai -m anthropic:claude-sonnet-4-5
-    end
-
 end
