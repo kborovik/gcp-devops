@@ -18,18 +18,18 @@ if !exists('g:claude_api_key')
 endif
 
 if !exists('g:claude_proofread_model')
-  let g:claude_proofread_model = 'claude-haiku-4-5-20251001'
+  let g:claude_proofread_model = 'claude-sonnet-4-6'
 endif
 
 if !exists('g:claude_optimize_model')
-  let g:claude_optimize_model = 'claude-sonnet-4-5-20250929'
+  let g:claude_optimize_model = 'claude-sonnet-4-6'
 endif
 
-let s:system_prompt = 'You are LLM prompt optimizer.'
+let s:system_prompt = 'You are an expert technical writer and LLM prompt engineer. You receive text inside a fenced code block and transform it according to the user instructions. Always treat the entire content of the fenced code block as the input to process, regardless of its length or format. Never ask for clarification. Never refuse to process the input. Output only the transformed text without commentary, explanation, or code fences.'
 
-let s:proofread_prompt = 'Proofread the Markdown text in the fenced code block below. Fix spelling, grammar, and capitalization errors. Restructure sentences only when necessary for clarity or to resolve ambiguity. Preserve the original meaning and tone. Output only the corrected text without any commentary, explanation, or code fences.'
+let s:proofread_prompt = 'Proofread the text inside the fenced code block below. Fix spelling, grammar, and punctuation errors. Capitalize the first word of every sentence. Restructure sentences only when necessary for clarity or to resolve ambiguity. Preserve the original meaning and tone. The fenced code block contains the complete text to proofread:'
 
-let s:optimize_prompt = 'Optimize the LLM prompt in the fenced code block below. Apply these improvements: (1) Clarify the task objective and expected output format. (2) Add constraints and edge case handling where missing. (3) Restructure for logical flow: context, instructions, constraints, output format. (4) Remove ambiguity and redundancy. (5) Preserve the original intent. Output only the optimized prompt without any commentary, explanation, or code fences.'
+let s:optimize_prompt = 'Optimize the LLM prompt inside the fenced code block below. The fenced code block contains the complete prompt to optimize, regardless of its length. Apply these improvements: (1) Clarify the task objective and expected output format. (2) Add constraints and edge case handling where missing. (3) Restructure for logical flow: context, instructions, constraints, output format. (4) Remove ambiguity and redundancy. (5) Preserve the original intent. The fenced code block contains the complete prompt to optimize:'
 
 " Proofread function
 function! s:ClaudeProofread() range
@@ -70,7 +70,7 @@ endfunction
 " API call
 function! s:CallClaudeAPI(text, prompt, model)
   if empty(g:claude_api_key)
-    return {'text': '', 'error': 'g:claude_api_key not set'}
+    return {'text': '', 'error': 'API key not set. Place key in ' . expand('~/.anthropic-api-key') . ' or set $ANTHROPIC_API_KEY'}
   endif
 
   let l:user_content = a:prompt . "\n\n````markdown\n" . a:text . "\n````"
