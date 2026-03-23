@@ -8,7 +8,7 @@ output "ansible_hosts" {
     {
       name = google_compute_instance.mailpilot.name
       ip   = google_compute_instance.mailpilot.network_interface[0].access_config[0].nat_ip
-      dns  = "${local.dep_env}.mailpilot.ca"
+      dns  = "${local.dep_env}.${local.domain}"
     }
   ]
 }

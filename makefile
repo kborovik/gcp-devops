@@ -10,7 +10,7 @@ default: help
 # Variables
 ###############################################################################
 
-google_project ?= mailpilot-pilot-dev1
+google_project ?= lab5-mailpilot-prd1
 google_region ?= us-east1
 google_zone ?= $(google_region)-b
 
@@ -37,7 +37,7 @@ clean: terraform-clean
 # Release Targets
 ###############################################################################
 
-mailpilot-pilot-dev1:
+lab5-mailpilot-prd1:
 	set -e
 	$(call header,Deploy $(yellow)$(@)$(reset))
 	$(MAKE) terraform-apply google_project=$(@)
