@@ -5,6 +5,7 @@
 locals {
   google_project_services = [
     "aiplatform.googleapis.com",
+    "apikeys.googleapis.com",
     "calendar-json.googleapis.com",
     "cloudcommerceconsumerprocurement.googleapis.com",
     "cloudscheduler.googleapis.com",
@@ -12,6 +13,7 @@ locals {
     "docs.googleapis.com",
     "drive.googleapis.com",
     "forms.googleapis.com",
+    "generativelanguage.googleapis.com",
     "gmail.googleapis.com",
     "iam.googleapis.com",
     "logging.googleapis.com",
