@@ -66,6 +66,8 @@
     regexp: '^#?{{ item.key }}\s*='
     line: '{{ item.key }} = {{ item.value }}'
   loop:
+    # Network
+    - { key: listen_addresses, value: "'*'" }
     # Memory
     - { key: shared_buffers, value: 512MB }
     - { key: huge_pages, value: 'off' }
@@ -91,10 +93,12 @@
     mode: '0640'
     content: |
       # PostgreSQL Client Authentication Configuration
-      # TYPE  DATABASE  USER  ADDRESS       METHOD
-      local   all       all                 trust
-      host    all       all   127.0.0.1/32  trust
-      host    all       all   ::1/128       trust
+      # TYPE  DATABASE  USER  ADDRESS        METHOD
+      local   all       all                  trust
+      host    all       all   127.0.0.1/32   trust
+      host    all       all   ::1/128        trust
+      # Tailscale VPN (CGNAT range 100.64.0.0/10)
+      host    all       all   100.64.0.0/10  scram-sha-256
   notify: Restart PostgreSQL
 
 - name: Start PostgreSQL
@@ -102,6 +106,21 @@
     name: postgresql
     state: started
     enabled: true
+
+- name: Create PostgreSQL remote user
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: >-
+      psql -tAc "DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ postgresql_remote_user }}') THEN
+          CREATE ROLE {{ postgresql_remote_user }} LOGIN PASSWORD '{{ postgresql_remote_password }}';
+        ELSE
+          ALTER ROLE {{ postgresql_remote_user }} PASSWORD '{{ postgresql_remote_password }}';
+        END IF;
+      END $$;"
+  changed_when: true
+  no_log: true
 
 # Cleanup: remove pgBackRest from existing systems
 - name: Stop and disable pgBackRest timers

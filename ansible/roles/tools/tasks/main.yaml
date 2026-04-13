@@ -1,4 +1,8 @@
 ---
+- name: Set timezone to America/Toronto
+  community.general.timezone:
+    name: America/Toronto
+
 - name: Install OS Tools
   ansible.builtin.apt:
     package: ['acl', 'bat', 'fish', 'git', 'jq', 'make', 'gnupg', 'tree']

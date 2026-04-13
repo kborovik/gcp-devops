@@ -84,10 +84,9 @@ ansible-clean:
 # Pilot App Deployment
 ###############################################################################
 
-ANTHROPIC_API_KEY = $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null)
-GITHUB_TOKEN = $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null)
-
 pilot-configure: ansible-ready
+	$(eval TAILSCALE_AUTH_KEY := $(shell gpg -d $(secrets_dir)/TAILSCALE_AUTH_KEY.gpg 2>/dev/null))
+	$(eval POSTGRESQL_REMOTE_PASSWORD := $(shell gpg -d $(secrets_dir)/POSTGRESQL_REMOTE_PASSWORD.gpg 2>/dev/null))
 	$(call header,Ansible VM Ping)
 	for i in 1 2 3 4 5; do
 		echo "Connectivity Test $$i of 5";
@@ -102,9 +101,12 @@ pilot-configure: ansible-ready
 	done
 	$(call header,Ansible VM Configuration)
 	ansible-playbook $(ansible_args) \
-	ansible/playbook-vm-config.yaml
+		--extra-vars 'tailscale_auth_key=$(TAILSCALE_AUTH_KEY) postgresql_remote_password=$(POSTGRESQL_REMOTE_PASSWORD)' \
+		ansible/playbook-vm-config.yaml
 
 pilot-deploy: ansible-ready ## Deploy Pilot app (pilot_version=X.Y.Z)
+	$(eval ANTHROPIC_API_KEY := $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null))
+	$(eval GITHUB_TOKEN := $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null))
 	$(eval pilot_version ?= $(shell gh release view --repo kborovik/pilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
 	@if [ -z "$(pilot_version)" ]; then \
 		echo "$(red)Error: pilot_version required. Usage: make pilot-deploy pilot_version=1.2.3$(reset)"; \

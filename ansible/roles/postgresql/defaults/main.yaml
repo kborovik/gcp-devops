@@ -1,0 +1,3 @@
+---
+postgresql_remote_user: pilot
+postgresql_remote_password: ''
