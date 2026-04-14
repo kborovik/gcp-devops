@@ -17,19 +17,6 @@
   ansible.builtin.set_fact:
     gcp_project_id: '{{ gcp_metadata.content }}'
 
-- name: Install uv
-  ansible.builtin.shell:
-    cmd: curl -LsSf https://astral.sh/uv/install.sh | sh
-    creates: /home/ubuntu/.local/bin/uv
-  become_user: '{{ pilot_user }}'
-
-- name: Install Python {{ pilot_python_version }} via uv
-  ansible.builtin.command:
-    cmd: /home/ubuntu/.local/bin/uv python install {{ pilot_python_version }}
-  become_user: '{{ pilot_user }}'
-  register: uv_python_install
-  changed_when: "'Installed' in uv_python_install.stderr"
-
 - name: Create directory structure
   ansible.builtin.file:
     path: '{{ item.path }}'
@@ -79,7 +66,7 @@
       ansible.builtin.shell:
         cmd: |
           set -eo pipefail
-          /home/ubuntu/.local/bin/uv venv --python {{ pilot_python_version }} {{ pilot_releases_dir }}/{{ pilot_version }}
+          /home/ubuntu/.local/bin/uv venv --python {{ uv_python_version }} {{ pilot_releases_dir }}/{{ pilot_version }}
           /home/ubuntu/.local/bin/uv pip install --python {{ pilot_releases_dir }}/{{ pilot_version }}/bin/python /tmp/{{ pilot_wheel_name }}
       args:
         executable: /bin/bash

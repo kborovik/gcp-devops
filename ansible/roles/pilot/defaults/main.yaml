@@ -17,6 +17,4 @@ pilot_database_url: 'postgresql://ubuntu@localhost/pilot'
 
 pilot_anthropic_api_key: ''
 
-pilot_python_version: '3.14'
-
 pilot_keep_releases: 3

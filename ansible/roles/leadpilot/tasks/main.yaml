@@ -1,0 +1,105 @@
+---
+- name: Assert leadpilot_version is set
+  ansible.builtin.assert:
+    that:
+      - leadpilot_version | length > 0
+    fail_msg: "leadpilot_version must be set (e.g. --extra-vars 'leadpilot_version=0.2.0')"
+
+- name: Install leadpilot v{{ leadpilot_version }} from GitHub
+  ansible.builtin.command:
+    cmd: >-
+      {{ leadpilot_home }}/.local/bin/uv tool install
+      --python {{ uv_python_version }}
+      --upgrade
+      git+{{ leadpilot_github_repo }}@v{{ leadpilot_version }}
+  become_user: '{{ leadpilot_user }}'
+  register: leadpilot_install
+  changed_when: "'Installed' in leadpilot_install.stdout or 'Updated' in leadpilot_install.stdout"
+  environment:
+    UV_GIT_TOKEN: '{{ leadpilot_github_token }}'
+
+- name: Verify leadpilot installation
+  ansible.builtin.command:
+    cmd: '{{ leadpilot_home }}/.local/bin/leadpilot --version'
+  become_user: '{{ leadpilot_user }}'
+  register: leadpilot_version_check
+  changed_when: false
+
+- name: Display leadpilot version
+  ansible.builtin.debug:
+    msg: 'leadpilot version: {{ leadpilot_version_check.stdout }}'
+
+- name: Add leadpilot to system PATH
+  ansible.builtin.file:
+    src: '{{ leadpilot_home }}/.local/bin/leadpilot'
+    dest: /usr/local/bin/leadpilot
+    state: link
+    force: true
+
+- name: Ensure PostgreSQL cluster is started
+  ansible.builtin.command:
+    cmd: /usr/bin/pg_ctlcluster 18 main start
+  register: pg_start
+  changed_when: pg_start.rc == 0 and 'already running' not in (pg_start.stderr | default(''))
+  failed_when: pg_start.rc != 0 and 'already running' not in (pg_start.stderr | default(''))
+
+- name: Check if ubuntu PostgreSQL role exists
+  ansible.builtin.command:
+    cmd: psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='ubuntu'" postgres
+  become_user: postgres
+  register: ubuntu_pg_role_check
+  changed_when: false
+
+- name: Create ubuntu PostgreSQL role if missing
+  ansible.builtin.command:
+    cmd: psql -c "CREATE ROLE ubuntu WITH LOGIN CREATEDB"
+  become_user: postgres
+  when: ubuntu_pg_role_check.stdout != '1'
+
+- name: Check if leadpilot database exists
+  ansible.builtin.command:
+    cmd: psql -tAc "SELECT 1 FROM pg_database WHERE datname='leadpilot'" postgres
+  become_user: postgres
+  register: leadpilot_pg_db_check
+  changed_when: false
+
+- name: Create leadpilot database if missing
+  ansible.builtin.command:
+    cmd: createdb -O ubuntu leadpilot
+  become_user: postgres
+  when: leadpilot_pg_db_check.stdout != '1'
+
+- name: Check public schema owner in leadpilot database
+  ansible.builtin.command:
+    cmd: psql -tAc "SELECT nspowner::regrole FROM pg_namespace WHERE nspname='public'" leadpilot
+  become_user: postgres
+  register: public_schema_owner
+  changed_when: false
+
+- name: Grant ubuntu ownership of public schema in leadpilot database
+  ansible.builtin.command:
+    cmd: psql -d leadpilot -c "ALTER SCHEMA public OWNER TO ubuntu"
+  become_user: postgres
+  when: public_schema_owner.stdout != 'ubuntu'
+
+- name: Deploy pipeline script
+  ansible.builtin.template:
+    src: leadpilot-pipeline.sh.j2
+    dest: '{{ leadpilot_home }}/.local/bin/leadpilot-pipeline'
+    owner: '{{ leadpilot_user }}'
+    group: '{{ leadpilot_group }}'
+    mode: '0755'
+
+- name: Schedule leadpilot pipeline cron job
+  ansible.builtin.cron:
+    name: 'leadpilot pipeline'
+    user: '{{ leadpilot_user }}'
+    hour: '{{ leadpilot_cron_hour }}'
+    minute: '{{ leadpilot_cron_minute }}'
+    job: '{{ leadpilot_home }}/.local/bin/leadpilot-pipeline >> {{ leadpilot_home }}/.leadpilot/pipeline.log 2>&1'
+
+- name: Initialize database schema
+  ansible.builtin.command:
+    cmd: '{{ leadpilot_home }}/.local/bin/leadpilot status'
+  become_user: '{{ leadpilot_user }}'
+  changed_when: false

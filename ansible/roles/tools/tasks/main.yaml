@@ -35,3 +35,16 @@
   ansible.builtin.user:
     name: ubuntu
     shell: /usr/bin/fish
+
+- name: Install uv
+  ansible.builtin.shell:
+    cmd: curl -LsSf https://astral.sh/uv/install.sh | sh
+    creates: /home/ubuntu/.local/bin/uv
+  become_user: ubuntu
+
+- name: Install Python {{ uv_python_version }} via uv
+  ansible.builtin.command:
+    cmd: /home/ubuntu/.local/bin/uv python install {{ uv_python_version }}
+  become_user: ubuntu
+  register: uv_python_install
+  changed_when: "'Installed' in uv_python_install.stderr"

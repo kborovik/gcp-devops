@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+
+# LeadPilot pipeline - mirrors 'make pipeline' from leadpilot project
+# Runs all 6 stages of the lead generation pipeline
+
+LEADPILOT="{{ leadpilot_home }}/.local/bin/leadpilot"
+LIMIT="{{ leadpilot_pipeline_limit }}"
+
+echo "$(date -Iseconds) Starting leadpilot pipeline"
+
+echo "$(date -Iseconds) Stage 1: Discover job postings"
+$LEADPILOT job discover
+
+echo "$(date -Iseconds) Stage 2: Enrich companies"
+$LEADPILOT company enrich --all --limit $LIMIT
+
+echo "$(date -Iseconds) Stage 3: Qualify companies"
+$LEADPILOT company qualify --all --limit $LIMIT
+
+echo "$(date -Iseconds) Stage 4: Discover contacts"
+$LEADPILOT contact discover --all --limit $LIMIT
+
+echo "$(date -Iseconds) Stage 5: Enrich contacts"
+$LEADPILOT contact enrich --all --limit $LIMIT
+
+echo "$(date -Iseconds) Stage 6: Verify contacts"
+$LEADPILOT contact verify --all --limit $LIMIT
+
+echo "$(date -Iseconds) Pipeline complete"
+$LEADPILOT status

@@ -103,11 +103,12 @@ pilot-configure: ansible-ready
 	ansible-playbook $(ansible_args) \
 		--extra-vars 'tailscale_auth_key=$(TAILSCALE_AUTH_KEY) postgresql_remote_password=$(POSTGRESQL_REMOTE_PASSWORD)' \
 		ansible/playbook-vm-config.yaml
+	$(MAKE) -C $(secrets_dir) clean
 
 pilot-deploy: ansible-ready ## Deploy Pilot app (pilot_version=X.Y.Z)
 	$(eval ANTHROPIC_API_KEY := $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null))
 	$(eval GITHUB_TOKEN := $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null))
-	$(eval pilot_version ?= $(shell gh release view --repo kborovik/pilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
+	$(eval pilot_version ?= $(shell gh release view --repo kborovik/leadpilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
 	@if [ -z "$(pilot_version)" ]; then \
 		echo "$(red)Error: pilot_version required. Usage: make pilot-deploy pilot_version=1.2.3$(reset)"; \
 		exit 1; \
@@ -116,6 +117,7 @@ pilot-deploy: ansible-ready ## Deploy Pilot app (pilot_version=X.Y.Z)
 	ansible-playbook $(ansible_args) \
 		--extra-vars 'pilot_version=$(pilot_version) pilot_anthropic_api_key=$(ANTHROPIC_API_KEY) pilot_github_token=$(GITHUB_TOKEN)' \
 		ansible/playbook-pilot-deploy.yaml
+	$(MAKE) -C $(secrets_dir) clean
 
 pilot-rollback: ansible-ready ## Rollback Pilot to previous release
 	$(call header,Rollback Pilot on $(yellow)$(google_project)$(reset))
@@ -126,6 +128,28 @@ pilot-status: ansible-ready ## Check Pilot service status
 	$(call header,Pilot Status on $(yellow)$(google_project)$(reset))
 	ansible $(ansible_args) all -m shell -a \
 		"systemctl status pilot --no-pager; echo '---'; readlink /home/ubuntu/pilot/current"
+
+###############################################################################
+# LeadPilot Deployment
+###############################################################################
+
+leadpilot-deploy: ansible-ready ## Deploy LeadPilot app (leadpilot_version=X.Y.Z)
+	$(eval leadpilot_version := $(or $(leadpilot_version),$(shell gh api repos/kborovik/leadpilot/releases/latest 2>/dev/null | jq -r '.tag_name' | sed 's/^v//')))
+	$(eval GITHUB_TOKEN := $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null))
+	@if [ -z "$(leadpilot_version)" ]; then \
+		echo "$(red)Error: leadpilot_version required. Usage: make leadpilot-deploy leadpilot_version=0.2.0$(reset)"; \
+		exit 1; \
+	fi
+	$(call header,Deploy LeadPilot $(yellow)v$(leadpilot_version)$(reset) to $(yellow)$(google_project)$(reset))
+	ansible-playbook $(ansible_args) \
+		--extra-vars 'leadpilot_version=$(leadpilot_version) leadpilot_github_token=$(GITHUB_TOKEN)' \
+		ansible/playbook-leadpilot-deploy.yaml
+	$(MAKE) -C $(secrets_dir) clean
+
+leadpilot-status: ansible-ready ## Check LeadPilot status
+	$(call header,LeadPilot Status on $(yellow)$(google_project)$(reset))
+	ansible $(ansible_args) all -m shell -a \
+		"leadpilot --version; echo '---'; leadpilot status; echo '---'; crontab -l | grep leadpilot || true"
 
 ###############################################################################
 # Terraform
