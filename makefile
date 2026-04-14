@@ -41,8 +41,9 @@ lab5-mailpilot-prd1:
 	set -e
 	$(call header,Deploy $(yellow)$(@)$(reset))
 	$(MAKE) terraform-apply google_project=$(@)
-	$(MAKE) pilot-configure google_project=$(@)
+	$(MAKE) gce-configure google_project=$(@)
 	$(MAKE) pilot-deploy google_project=$(@)
+	$(MAKE) leadpilot-deploy google_project=$(@)
 
 ###############################################################################
 # Ansible
@@ -81,10 +82,10 @@ ansible-clean:
 	done
 
 ###############################################################################
-# Pilot App Deployment
+# VM Configuration
 ###############################################################################
 
-pilot-configure: ansible-ready
+gce-configure: ansible-ready
 	$(eval TAILSCALE_AUTH_KEY := $(shell gpg -d $(secrets_dir)/TAILSCALE_AUTH_KEY.gpg 2>/dev/null))
 	$(eval POSTGRESQL_REMOTE_PASSWORD := $(shell gpg -d $(secrets_dir)/POSTGRESQL_REMOTE_PASSWORD.gpg 2>/dev/null))
 	$(call header,Ansible VM Ping)
@@ -105,10 +106,14 @@ pilot-configure: ansible-ready
 		ansible/playbook-vm-config.yaml
 	$(MAKE) -C $(secrets_dir) clean
 
+###############################################################################
+# Pilot App Deployment
+###############################################################################
+
 pilot-deploy: ansible-ready ## Deploy Pilot app (pilot_version=X.Y.Z)
 	$(eval ANTHROPIC_API_KEY := $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null))
 	$(eval GITHUB_TOKEN := $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null))
-	$(eval pilot_version ?= $(shell gh release view --repo kborovik/leadpilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
+	$(eval pilot_version ?= $(shell gh release view --repo kborovik/mailpilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
 	@if [ -z "$(pilot_version)" ]; then \
 		echo "$(red)Error: pilot_version required. Usage: make pilot-deploy pilot_version=1.2.3$(reset)"; \
 		exit 1; \
@@ -134,8 +139,8 @@ pilot-status: ansible-ready ## Check Pilot service status
 ###############################################################################
 
 leadpilot-deploy: ansible-ready ## Deploy LeadPilot app (leadpilot_version=X.Y.Z)
-	$(eval leadpilot_version := $(or $(leadpilot_version),$(shell gh api repos/kborovik/leadpilot/releases/latest 2>/dev/null | jq -r '.tag_name' | sed 's/^v//')))
 	$(eval GITHUB_TOKEN := $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null))
+	$(eval leadpilot_version ?= $(shell gh release view --repo kborovik/leadpilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
 	@if [ -z "$(leadpilot_version)" ]; then \
 		echo "$(red)Error: leadpilot_version required. Usage: make leadpilot-deploy leadpilot_version=0.2.0$(reset)"; \
 		exit 1; \
