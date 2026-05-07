@@ -39,12 +39,12 @@ lint: terraform-validate ansible-lint ## Run Terraform and Ansible linters
 # Release Targets
 ###############################################################################
 
-lab5-mailpilot-prd1:
+deploy: ## Deploy to lab5-mailpilot-prd1 (override: google_project=...)
 	set -e
-	$(call header,Deploy $(yellow)$(@)$(reset))
-	$(MAKE) terraform-apply google_project=$(@)
-	$(MAKE) gce-configure google_project=$(@)
-	$(MAKE) leadpilot-deploy google_project=$(@)
+	$(call header,Deploy $(yellow)$(google_project)$(reset))
+	$(MAKE) terraform-apply
+	$(MAKE) gce-configure
+	$(MAKE) leadpilot-deploy
 
 ###############################################################################
 # Ansible
@@ -146,7 +146,7 @@ terraform_bucket := terraform-$(google_project)
 
 CLOUDFLARE_API_TOKEN = $(shell gpg -d $(secrets_dir)/CLOUDFLARE_API_TOKEN.gpg 2>/dev/null)
 
-terraform: terraform-plan prompt terraform-apply ## Run Terraform Plan + Apply
+terraform: terraform-plan prompt terraform-apply
 
 terraform-config:
 	$(call header,Configure Terraform)
