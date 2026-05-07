@@ -21,6 +21,7 @@ Provision ∧ configure GCP infra ∀ MailPilot apps. Terraform → infra (GCE, 
 |cmd|`make gce-configure`|run `playbook-vm-config.yaml`|
 |cmd|`make leadpilot-deploy [leadpilot_version=<v>]`|run `playbook-leadpilot-deploy.yaml`|
 |cmd|`make deploy`|plan-check → bail on drift, else gce-configure + leadpilot-deploy|
+|cmd|`make verify`|audit §V1 (secrets ⊥ plaintext) ∧ §V2 (inventory drift) ∧ §V6 (per-project files)|
 |cmd|`make gce-{ssh,status,start,stop}` ∨ `make gce-exec cmd=…`|VM ops|
 |env|`google_project`|default `lab5-mailpilot-prd1`|
 |file|`config/<p>/terraform.tfvars`|TF vars per project|
