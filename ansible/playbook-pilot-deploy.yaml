@@ -1,7 +1,0 @@
-- name: Deploy Pilot application
-  hosts: all
-  become: true
-  timeout: 720
-  roles:
-    - role: claude_code
-    - role: pilot

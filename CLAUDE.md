@@ -17,7 +17,7 @@ terraform/                        Terraform configs (GCS backend per project)
 └── *.tf                          Resource definitions
 ansible/
 ├── playbook-vm-config.yaml       VM infrastructure config
-├── playbook-pilot-deploy.yaml    Pilot app deployment
+├── playbook-leadpilot-deploy.yaml LeadPilot app deployment
 └── roles/                        zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
 secrets/                          GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
 ```
@@ -32,8 +32,8 @@ secrets/                          GPG-encrypted credentials (ssh.key, CLOUDFLARE
 ## Verification
 
 - **After changing Terraform files:** run `make terraform-apply` to apply and verify changes succeed
-- **After changing Ansible VM config roles:** run `make pilot-configure` to apply and verify changes succeed
-- **After changing Pilot deployment role:** run `make pilot-deploy` to apply and verify changes succeed
+- **After changing Ansible VM config roles:** run `make gce-configure` to apply and verify changes succeed
+- **After changing LeadPilot deployment role:** run `make leadpilot-deploy` to apply and verify changes succeed
 
 ## Terraform
 
@@ -47,7 +47,7 @@ secrets/                          GPG-encrypted credentials (ssh.key, CLOUDFLARE
 
 - **YAML strings:** Always use single quotes. Never use double quotes unless the value requires YAML escape sequences (`\n`, `\t`). Escape embedded single quotes by doubling them (`''`). Leave shell commands with embedded double quotes as unquoted YAML strings.
 - VM config roles run in order: zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
-- Pilot app deployed separately via `make pilot-deploy` (uses `playbook-pilot-deploy.yaml`)
+- LeadPilot app deployed separately via `make leadpilot-deploy` (uses `playbook-leadpilot-deploy.yaml`)
 - Inventory is auto-generated from `config/<project>/terraform-output.json` via `make ansible-inventory`
 - Per-project overrides live in `config/<project>/ansible/inventory/group_vars/all.yaml` (Ansible group_vars > role defaults)
 - SSH key at `secrets/ssh.key` (decrypted on-the-fly from `.gpg`)
@@ -58,11 +58,10 @@ secrets/                          GPG-encrypted credentials (ssh.key, CLOUDFLARE
 - `make gce-status` — List GCE instances
 - `make gce-start` / `make gce-stop` — Start/stop instances
 - `make gce-exec cmd="..."` — Run remote command on GCE instance
-- `make mailpilot-pilot-dev1` — Full deploy (terraform-apply + pilot-configure + pilot-deploy) for dev
-- `make pilot-configure` — Run VM infrastructure playbook
-- `make pilot-deploy` — Deploy Pilot app (auto-detects latest release, or `pilot_version=X.Y.Z`)
-- `make pilot-rollback` — Rollback Pilot to previous release
-- `make pilot-status` — Check Pilot service status
+- `make lab5-mailpilot-prd1` — Full deploy (terraform-apply + gce-configure + leadpilot-deploy)
+- `make gce-configure` — Run VM infrastructure playbook
+- `make leadpilot-deploy` — Deploy LeadPilot app (auto-detects latest release, or `leadpilot_version=X.Y.Z`)
+- `make leadpilot-status` — Check LeadPilot status
 
 ## Secrets
 
@@ -73,7 +72,7 @@ secrets/                          GPG-encrypted credentials (ssh.key, CLOUDFLARE
 
 ## Gotchas
 
-- Ansible inventory is generated from Terraform output — run `make terraform-apply` before `make pilot-configure` on first setup
+- Ansible inventory is generated from Terraform output — run `make terraform-apply` before `make gce-configure` on first setup
 - Per-project configs (tfvars, inventory, group_vars) live in `config/<project>/` — never in `terraform/` or `ansible/`
 - GCE instances have auto-stop schedules (20:00 ET daily); dev has stop-only, prod has start+stop
 - The `google_project` variable defaults to `mailpilot-pilot-dev1` — always pass it explicitly for prod (`mailpilot-pilot-prd1`)

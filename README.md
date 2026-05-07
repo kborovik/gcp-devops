@@ -1,6 +1,6 @@
-# MailPilot Pilot
+# Pilot Applications Deployment
 
-Google Cloud infrastructure for MailPilot — Terraform, Ansible, and Make-based deployment pipeline.
+Google Cloud infrastructure for Pilot Applications — Terraform, Ansible, and Make-based deployment pipeline.
 
 ## Components
 

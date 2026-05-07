@@ -33,6 +33,8 @@ settings: ## Display settings
 
 clean: terraform-clean
 
+lint: terraform-validate ansible-lint ## Run Terraform and Ansible linters
+
 ###############################################################################
 # Release Targets
 ###############################################################################
@@ -42,7 +44,6 @@ lab5-mailpilot-prd1:
 	$(call header,Deploy $(yellow)$(@)$(reset))
 	$(MAKE) terraform-apply google_project=$(@)
 	$(MAKE) gce-configure google_project=$(@)
-	$(MAKE) pilot-deploy google_project=$(@)
 	$(MAKE) leadpilot-deploy google_project=$(@)
 
 ###############################################################################
@@ -81,6 +82,10 @@ ansible-clean:
 		ssh-keygen -f ~/.ssh/known_hosts -R "$$host" > /dev/null 2>&1; \
 	done
 
+ansible-lint:
+	$(call header,Ansible Lint)
+	ansible-lint $(ansible_dir)
+
 ###############################################################################
 # VM Configuration
 ###############################################################################
@@ -107,42 +112,14 @@ gce-configure: ansible-ready
 	$(MAKE) -C $(secrets_dir) clean
 
 ###############################################################################
-# Pilot App Deployment
-###############################################################################
-
-pilot-deploy: ansible-ready ## Deploy Pilot app (pilot_version=X.Y.Z)
-	$(eval ANTHROPIC_API_KEY := $(shell gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null))
-	$(eval GITHUB_TOKEN := $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null))
-	$(eval pilot_version ?= $(shell gh release view --repo kborovik/mailpilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
-	@if [ -z "$(pilot_version)" ]; then \
-		echo "$(red)Error: pilot_version required. Usage: make pilot-deploy pilot_version=1.2.3$(reset)"; \
-		exit 1; \
-	fi
-	$(call header,Deploy Pilot $(yellow)v$(pilot_version)$(reset) to $(yellow)$(google_project)$(reset))
-	ansible-playbook $(ansible_args) \
-		--extra-vars 'pilot_version=$(pilot_version) pilot_anthropic_api_key=$(ANTHROPIC_API_KEY) pilot_github_token=$(GITHUB_TOKEN)' \
-		ansible/playbook-pilot-deploy.yaml
-	$(MAKE) -C $(secrets_dir) clean
-
-pilot-rollback: ansible-ready ## Rollback Pilot to previous release
-	$(call header,Rollback Pilot on $(yellow)$(google_project)$(reset))
-	ansible $(ansible_args) all -m shell -a \
-		"prev=$$(ls -1dt /home/ubuntu/pilot/releases/*/ | sed -n 2p) && ln -sfn $$prev /home/ubuntu/pilot/current && systemctl restart pilot && readlink /home/ubuntu/pilot/current"
-
-pilot-status: ansible-ready ## Check Pilot service status
-	$(call header,Pilot Status on $(yellow)$(google_project)$(reset))
-	ansible $(ansible_args) all -m shell -a \
-		"systemctl status pilot --no-pager; echo '---'; readlink /home/ubuntu/pilot/current"
-
-###############################################################################
 # LeadPilot Deployment
 ###############################################################################
 
-leadpilot-deploy: ansible-ready ## Deploy LeadPilot app (leadpilot_version=X.Y.Z)
+leadpilot-deploy: ansible-ready
 	$(eval GITHUB_TOKEN := $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null))
 	$(eval leadpilot_version ?= $(shell gh release view --repo kborovik/leadpilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
 	@if [ -z "$(leadpilot_version)" ]; then \
-		echo "$(red)Error: leadpilot_version required. Usage: make leadpilot-deploy leadpilot_version=0.2.0$(reset)"; \
+		echo "$(red)Error: leadpilot_version required. Usage: make leadpilot-deploy leadpilot_version=0.0.0$(reset)"; \
 		exit 1; \
 	fi
 	$(call header,Deploy LeadPilot $(yellow)v$(leadpilot_version)$(reset) to $(yellow)$(google_project)$(reset))
@@ -151,7 +128,7 @@ leadpilot-deploy: ansible-ready ## Deploy LeadPilot app (leadpilot_version=X.Y.Z
 		ansible/playbook-leadpilot-deploy.yaml
 	$(MAKE) -C $(secrets_dir) clean
 
-leadpilot-status: ansible-ready ## Check LeadPilot status
+leadpilot-status: ansible-ready
 	$(call header,LeadPilot Status on $(yellow)$(google_project)$(reset))
 	ansible $(ansible_args) all -m shell -a \
 		"leadpilot --version; echo '---'; leadpilot status; echo '---'; crontab -l | grep leadpilot || true"
@@ -254,7 +231,7 @@ gce-stop:
 		echo "No instances found in zone $(google_zone)"
 	fi
 
-gce-exec: ansible-ready ## Execute remote command (cmd="...")
+gce-exec: ansible-ready
 	@if [ -z "$(cmd)" ]; then \
 		echo "$(red)Error: cmd required. Usage: make gce-exec cmd='pilot setup validate'$(reset)"; \
 		exit 1; \
@@ -262,7 +239,7 @@ gce-exec: ansible-ready ## Execute remote command (cmd="...")
 	$(call header,Execute on $(yellow)$(google_project)$(reset))
 	ansible $(ansible_args) all -m shell -a "$(cmd)"
 
-gce-ssh: $(ansible_ssh_key) ## SSH into GCE instance
+gce-ssh: $(ansible_ssh_key)
 	$(call header,SSH into GCE instance)
 	ssh $(SSH_COMMON_ARGS) -i $(ansible_ssh_key) $(ansible_user)@$(shell jq -r '.ansible_hosts.value[0].dns' $(terraform_output))
 
