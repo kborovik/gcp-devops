@@ -114,3 +114,16 @@ systemctl status sanoid.timer
 gcloud compute snapshots list --project=mailpilot-pilot-dev1 \
   --filter="sourceDisk:mailpilot-1-pgsql"
 ```
+
+### Restore Smoke-Test Cadence
+
+Run a full ZFS rollback restore drill on **dev** (`lab5-mailpilot-dev1`) at least once per quarter. Untested backups are unreliable backups — a quarterly drill confirms the snapshot pipeline still produces a recoverable PostgreSQL state end-to-end.
+
+Procedure:
+
+1. Connect: `make gce-ssh google_project=lab5-mailpilot-dev1`
+2. Pick a recent non-critical snapshot from `sudo zfs list -t snapshot -r data/postgresql`
+3. Walk **Scenario 1** above (stop PostgreSQL → `zfs rollback` → start PostgreSQL)
+4. Confirm the service comes back healthy and recent rows are visible
+
+Record the drill date and outcome in the team runbook. If two quarters pass without a successful drill, treat the backup chain as unverified and escalate before relying on it.
