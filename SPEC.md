@@ -26,7 +26,7 @@ Provision ∧ configure GCP infra ∀ MailPilot apps. Terraform → infra (GCE, 
 |env|`google_project`|default `lab5-mailpilot-prd1`|
 |file|`config/<p>/terraform.tfvars`|TF vars per project|
 |file|`config/<p>/terraform-output.json`|TF output → ansible inventory source|
-|file|`config/<p>/ansible/inventory/group_vars/all.yaml`|per-project ansible overrides|
+|file|`config/<p>/ansible/inventory/group_vars/all.yaml`|optional per-project ansible overrides (slot; absence ⊥ drift)|
 |file|`secrets/*.gpg`|GPG-encrypted; `secrets/.gpg_id` ≡ recipient|
 
 ## §V
