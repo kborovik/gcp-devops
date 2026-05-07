@@ -1,80 +1,18 @@
 # CLAUDE.md
 
-## Overview
+## Source of truth: SPEC.md
 
-Google Cloud infrastructure for MailPilot. Terraform provisions GCE instances, networking, DNS (Cloudflare), and service accounts. Ansible configures VMs (ZFS, PostgreSQL, Google Ops Agent, tools). Secrets are GPG-encrypted.
+Invariants, interfaces, and tasks live in `SPEC.md` (math-glyph, LLM-facing). Read it first. `/sdd:explain` decodes to prose; `/sdd:check` audits drift; `/sdd:spec` is the sole mutator. Do not hand-edit `SPEC.md`.
 
-## Architecture
+## Operational notes
 
-```
-config/<project>/                 Per-project configuration
-├── terraform.tfvars              Terraform variables
-├── terraform-output.json         Terraform output (generated)
-└── ansible/inventory/            Ansible inventory + group_vars
-    ├── group_vars/all.yaml       Per-project Ansible overrides
-    └── <host files>              Auto-generated from Terraform output
-terraform/                        Terraform configs (GCS backend per project)
-└── *.tf                          Resource definitions
-ansible/
-├── playbook-vm-config.yaml       VM infrastructure config
-├── playbook-leadpilot-deploy.yaml LeadPilot app deployment
-└── roles/                        zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
-secrets/                          GPG-encrypted credentials (ssh.key, CLOUDFLARE_API_TOKEN)
-```
+### Secrets — Claude Code workflow
+- Decrypt: `gpg -d secrets/<f>.gpg`
+- Re-encrypt: `gpg -e -r $(cat secrets/.gpg_id) -o secrets/<f>.gpg secrets/<f>`
+- Humans use `make -C secrets decrypt|encrypt|clean`
+- Decrypt timing: `CLOUDFLARE_API_TOKEN` at TF runtime; `TAILSCALE_AUTH_KEY`, `POSTGRESQL_REMOTE_PASSWORD`, `GITHUB_TOKEN` at Ansible runtime via `gce-configure` / `leadpilot-deploy`
 
-## Prerequisites
-
-- gcloud CLI (authenticated: `make google-auth`)
-- Terraform >= 1.0, < 2.0
-- Ansible
-- GPG key matching `secrets/.gpg_id` for decrypting secrets
-
-## Verification
-
-- **After changing Terraform files:** run `make terraform-apply` to apply and verify changes succeed
-- **After changing Ansible VM config roles:** run `make gce-configure` to apply and verify changes succeed
-- **After changing LeadPilot deployment role:** run `make leadpilot-deploy` to apply and verify changes succeed
-
-## Terraform
-
-- Run `make terraform-plan` to validate and plan changes
-- Run `make terraform-apply` to apply changes
-- Target production with `google_project=mailpilot-pilot-prd1` (e.g. `make terraform-plan google_project=mailpilot-pilot-prd1`)
-- Default target: `mailpilot-pilot-dev1` (us-east5)
-- State stored in GCS bucket `terraform-<google_project>`
-
-## Ansible
-
-- **YAML strings:** Always use single quotes. Never use double quotes unless the value requires YAML escape sequences (`\n`, `\t`). Escape embedded single quotes by doubling them (`''`). Leave shell commands with embedded double quotes as unquoted YAML strings.
-- VM config roles run in order: zfs → tools → github_cli → postgresql → sanoid → google_ops → claude_code
-- LeadPilot app deployed separately via `make leadpilot-deploy` (uses `playbook-leadpilot-deploy.yaml`)
-- Inventory is auto-generated from `config/<project>/terraform-output.json` via `make ansible-inventory`
-- Per-project overrides live in `config/<project>/ansible/inventory/group_vars/all.yaml` (Ansible group_vars > role defaults)
-- SSH key at `secrets/ssh.key` (decrypted on-the-fly from `.gpg`)
-
-## Operations
-
-- `make gce-ssh` — SSH into the GCE instance
-- `make gce-status` — List GCE instances
-- `make gce-start` / `make gce-stop` — Start/stop instances
-- `make gce-exec cmd="..."` — Run remote command on GCE instance
-- `make lab5-mailpilot-prd1` — Full deploy (terraform-apply + gce-configure + leadpilot-deploy)
-- `make gce-configure` — Run VM infrastructure playbook
-- `make leadpilot-deploy` — Deploy LeadPilot app (auto-detects latest release, or `leadpilot_version=X.Y.Z`)
-- `make leadpilot-status` — Check LeadPilot status
-
-## Secrets
-
-- Claude Code: use `gpg -d secrets/<file>.gpg` to decrypt, `gpg -e -r $(cat secrets/.gpg_id) -o secrets/<file>.gpg secrets/<file>` to encrypt
-- Humans: `make -C secrets decrypt` / `encrypt` / `clean`
-- GPG recipient ID in `secrets/.gpg_id`
-- `CLOUDFLARE_API_TOKEN` is decrypted at Terraform runtime from GPG
-
-## Gotchas
-
-- Ansible inventory is generated from Terraform output — run `make terraform-apply` before `make gce-configure` on first setup
-- Per-project configs (tfvars, inventory, group_vars) live in `config/<project>/` — never in `terraform/` or `ansible/`
-- GCE instances have auto-stop schedules (20:00 ET daily); dev has stop-only, prod has start+stop
-- The `google_project` variable defaults to `mailpilot-pilot-dev1` — always pass it explicitly for prod (`mailpilot-pilot-prd1`)
-- Backups: ZFS snapshots via Sanoid (hourly/daily/weekly, local) + GCE disk snapshots (daily, 14-day retention)
-- PostgreSQL 18 with `wal_level=minimal` and `max_wal_senders=0` — no streaming replication
+### Gotchas
+- First setup: run `make terraform-apply` before `make gce-configure` — inventory regenerates from TF output
+- GCE auto-stop schedules per `gce_schedule` tfvar: dev1=`stop_only` (20:00 ET stop), prd1=`none`
+- Backups: ZFS snapshots via Sanoid (12h/7d/4w, local) + GCE disk snapshots (daily 02:00 UTC, 14d retention)
