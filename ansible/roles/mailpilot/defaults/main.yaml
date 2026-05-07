@@ -1,0 +1,11 @@
+---
+mailpilot_version: ''
+
+mailpilot_user: ubuntu
+mailpilot_group: ubuntu
+mailpilot_home: /home/ubuntu
+
+uv_python_version: '3.14'
+
+mailpilot_github_repo: 'https://github.com/kborovik/mailpilot'
+mailpilot_github_token: ''

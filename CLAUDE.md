@@ -10,7 +10,7 @@ Invariants, interfaces, and tasks live in `SPEC.md` (math-glyph, LLM-facing). Re
 - Decrypt: `gpg -d secrets/<f>.gpg`
 - Re-encrypt: `gpg -e -r $(cat secrets/.gpg_id) -o secrets/<f>.gpg secrets/<f>`
 - Humans use `make -C secrets decrypt|encrypt|clean`
-- Decrypt timing: `CLOUDFLARE_API_TOKEN` at TF runtime; `TAILSCALE_AUTH_KEY`, `POSTGRESQL_REMOTE_PASSWORD`, `GITHUB_TOKEN` at Ansible runtime via `gce-configure` / `leadpilot-deploy`
+- Decrypt timing: `CLOUDFLARE_API_TOKEN` at TF runtime; `TAILSCALE_AUTH_KEY`, `POSTGRESQL_REMOTE_PASSWORD`, `GITHUB_TOKEN` at Ansible runtime via `gce-configure` / `leadpilot-deploy` / `mailpilot-deploy`
 
 ### Gotchas
 - First setup: run `make terraform-apply` before `make gce-configure` — inventory regenerates from TF output

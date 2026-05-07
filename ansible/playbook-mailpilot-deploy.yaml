@@ -1,0 +1,6 @@
+- name: Deploy MailPilot application
+  hosts: all
+  become: true
+  timeout: 720
+  roles:
+    - role: mailpilot
