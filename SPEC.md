@@ -49,7 +49,7 @@ Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS,
 |T2|x|document ZFS rollback restore-test cadence (smoke-test ≥ 1×/quarter on dev) ∈ README §Recovery|V?,I.cmd
 |T3|x|add mailpilot deploy mirror — ansible role `mailpilot/`, `playbook-mailpilot-deploy.yaml`, Makefile `mailpilot-deploy` ∧ `mailpilot-status` targets, GitHub release fetch via `GITHUB_TOKEN`|V1,I.cmd
 |T4|x|gate prod deploy — `*-deploy` ∧ `deploy` targets refuse to invoke ansible-playbook when `google_project=lab5-mailpilot-prd1` unless `confirm=prd1` set ∨ interactive y/N answered|V8
-|T5|.|enforce V9 — set `SHELL := bash` ∧ `.SHELLFLAGS := -ec` ∈ Makefile head; verify ∀ multi-line recipe (`leadpilot-deploy`, `mailpilot-deploy`, `gce-configure`) propagates non-zero exit on mid-recipe failure|V9,I.cmd
+|T5|x|enforce V9 — set `SHELL := bash` ∧ `.SHELLFLAGS := -ec` ∈ Makefile head; verify ∀ multi-line recipe (`leadpilot-deploy`, `mailpilot-deploy`, `gce-configure`) propagates non-zero exit on mid-recipe failure|V9,I.cmd
 
 ## §B
 
