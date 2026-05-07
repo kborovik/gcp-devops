@@ -37,6 +37,72 @@ settings: ## Display settings
 
 lint: terraform-validate ansible-lint ## Run Terraform and Ansible linters
 
+verify: ## Audit SPEC.md V1/V2/V6 invariants
+	rc=0
+	echo "==> V1: secrets/ committed plaintext check <=="
+	plaintext=$$(git -C $(root_dir) ls-files secrets/ | grep -vE '\.gpg$$|^secrets/\.gpg_id$$|^secrets/\.gitignore$$|^secrets/makefile$$' || true)
+	if [ -n "$$plaintext" ]; then
+		echo "V1 FAIL: committed plaintext under secrets/:"
+		echo "$$plaintext" | sed 's/^/  /'
+		rc=1
+	else
+		echo "V1 OK"
+	fi
+	echo "==> V2: ansible inventory drift vs terraform-output.json <=="
+	for proj_dir in $(root_dir)/config/*/; do
+		proj=$$(basename $$proj_dir)
+		out=$$proj_dir/terraform-output.json
+		inv=$$proj_dir/ansible/inventory
+		if [ ! -f "$$out" ]; then
+			echo "  $$proj: skip (no terraform-output.json)"
+			continue
+		fi
+		exp_names=$$(mktemp)
+		act_names=$$(mktemp)
+		jq -r '.ansible_hosts.value[].name' $$out | sort > $$exp_names
+		find $$inv -maxdepth 1 -type f ! -name '.gitignore' -exec basename {} \; | sort > $$act_names
+		if ! diff -q $$exp_names $$act_names >/dev/null 2>&1; then
+			echo "V2 FAIL: $$proj inventory filenames drift"
+			diff $$exp_names $$act_names | sed 's/^/  /' || true
+			rc=1
+			rm -f $$exp_names $$act_names
+			continue
+		fi
+		rm -f $$exp_names $$act_names
+		exp_pairs=$$(mktemp)
+		jq -r '.ansible_hosts.value[] | "\(.name) \(.dns)"' $$out > $$exp_pairs
+		drift=0
+		while read -r name dns; do
+			file=$$inv/$$name
+			if [ ! -f "$$file" ] || [ "$$(cat $$file)" != "$$dns" ]; then
+				echo "V2 FAIL: $$proj $$name content drift (expected $$dns)"
+				drift=1
+			fi
+		done < $$exp_pairs
+		rm -f $$exp_pairs
+		if [ $$drift -eq 0 ]; then
+			echo "  $$proj: OK"
+		else
+			rc=1
+		fi
+	done
+	echo "==> V6: per-project files outside config/ <=="
+	projects=$$(ls -1 $(root_dir)/config/ 2>/dev/null)
+	if [ -z "$$projects" ]; then
+		echo "V6 SKIP: no projects under config/"
+	else
+		pattern=$$(echo "$$projects" | paste -sd '|' -)
+		stray=$$(git -C $(root_dir) ls-files terraform/ ansible/ | grep -E "($$pattern)" || true)
+		if [ -n "$$stray" ]; then
+			echo "V6 FAIL: per-project paths committed outside config/:"
+			echo "$$stray" | sed 's/^/  /'
+			rc=1
+		else
+			echo "V6 OK"
+		fi
+	fi
+	exit $$rc
+
 deploy: terraform-validate ## Deploy to lab5-mailpilot-prd1 (override: google_project=...)
 	set -e
 	echo "==> Plan check for $(google_project) <=="
