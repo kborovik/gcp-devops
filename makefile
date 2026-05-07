@@ -4,6 +4,18 @@
 
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
+# §V8: prod-confirm gate. Pass `confirm=prd1` to skip interactive prompt.
+define require_prd_confirm
+if [ "$(google_project)" = "lab5-mailpilot-prd1" ] && [ "$(confirm)" != "prd1" ]; then
+	printf 'Deploy to PROD (lab5-mailpilot-prd1)? Type "yes" to continue: '
+	read _answer
+	if [ "$$_answer" != "yes" ]; then
+		echo "aborted: pass confirm=prd1 to skip prompt"
+		exit 1
+	fi
+fi
+endef
+
 default: help
 
 google_project ?= lab5-mailpilot-prd1
@@ -103,7 +115,8 @@ verify: ## Audit SPEC.md V1/V2/V6 invariants
 	fi
 	exit $$rc
 
-deploy: terraform-validate ## Deploy to lab5-mailpilot-prd1 (override: google_project=...)
+deploy: terraform-validate ## Deploy to lab5-mailpilot-prd1 (prod requires confirm=prd1)
+	$(require_prd_confirm)
 	set -e
 	echo "==> Plan check for $(google_project) <=="
 	rc=0
@@ -121,6 +134,7 @@ deploy: terraform-validate ## Deploy to lab5-mailpilot-prd1 (override: google_pr
 	echo "==> Deploy $(google_project) (no infra changes) <=="
 	$(MAKE) gce-configure
 	$(MAKE) leadpilot-deploy
+	$(MAKE) mailpilot-deploy
 
 # Ansible
 
@@ -171,6 +185,7 @@ gce-configure: ansible-ready
 # LeadPilot Deployment
 
 leadpilot-deploy: ansible-ready
+	$(require_prd_confirm)
 	leadpilot_version='$(leadpilot_version)'
 	GITHUB_TOKEN=$$(gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null) || true
 	if [ -z "$$GITHUB_TOKEN" ]; then
@@ -193,6 +208,33 @@ leadpilot-deploy: ansible-ready
 leadpilot-status: ansible-ready
 	$(ansible) $(ansible_args) all -m shell -a \
 		"leadpilot --version; echo '---'; leadpilot status; echo '---'; crontab -l | grep leadpilot || true"
+
+# MailPilot Deployment
+
+mailpilot-deploy: ansible-ready
+	$(require_prd_confirm)
+	mailpilot_version='$(mailpilot_version)'
+	GITHUB_TOKEN=$$(gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null) || true
+	if [ -z "$$GITHUB_TOKEN" ]; then
+		echo "Error: failed to decrypt $(secrets_dir)/GITHUB_TOKEN.gpg (is gpg-agent unlocked?)"
+		exit 1
+	fi
+	if [ -z "$$mailpilot_version" ]; then
+		mailpilot_version=$$(curl -fsSL -H "Authorization: Bearer $$GITHUB_TOKEN" https://api.github.com/repos/kborovik/mailpilot/releases/latest 2>/dev/null | jq -r '.tag_name // empty' | sed 's/^v//') || true
+	fi
+	if [ -z "$$mailpilot_version" ]; then
+		echo "Error: could not detect latest mailpilot release. Pass explicitly: make mailpilot-deploy mailpilot_version=X.Y.Z"
+		exit 1
+	fi
+	echo "==> Deploy MailPilot v$$mailpilot_version to $(google_project) <=="
+	$(ansible_playbook) $(ansible_args) \
+		--extra-vars "mailpilot_version=$$mailpilot_version mailpilot_github_token=$$GITHUB_TOKEN" \
+		ansible/playbook-mailpilot-deploy.yaml
+	$(MAKE) -C $(secrets_dir) clean
+
+mailpilot-status: ansible-ready
+	$(ansible) $(ansible_args) all -m shell -a \
+		"mailpilot --version; echo '---'; mailpilot status"
 
 # Terraform
 
