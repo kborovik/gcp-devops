@@ -32,7 +32,7 @@ Provision ∧ configure GCP infra ∀ MailPilot apps. Terraform → infra (GCE, 
 
 - V1: ∀ secret ∈ `secrets/` → GPG-encrypted (`.gpg`); ⊥ plaintext committed
 - V2: ansible inventory ! regenerated from `terraform-output.json` via `make ansible-inventory` — ⊥ hand-edit
-- V3: ansible YAML strings ! single-quote (double only ∀ `\n`/`\t`); embedded `'` → `''`
+- V3: ansible YAML strings ! single-quote — double-quote OK ∀ {`\n`/`\t`, embedded `'`}; embedded `'` ∈ single-quoted → `''`
 - V4: VM cfg playbook role order ≡ zfs → tools → github_cli → gpg → tailscale → postgresql → sanoid → google_ops
 - V5: `make deploy` ! plan-check before apply → exit 1 ∧ surface plan if pending TF changes
 - V6: per-project cfg ∈ `config/<p>/` only — ⊥ ∈ `terraform/` ∨ `ansible/`
