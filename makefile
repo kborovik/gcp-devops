@@ -2,6 +2,9 @@
 .ONESHELL:
 .SILENT:
 
+SHELL := bash
+.SHELLFLAGS := -ec
+
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
 # §V8: prod-confirm gate. Pass `confirm=prd1` to skip interactive prompt.
