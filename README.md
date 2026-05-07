@@ -1,6 +1,6 @@
-# Pilot Applications Deployment
+# Pilot Apps Deployment
 
-Google Cloud infrastructure for Pilot Applications — Terraform, Ansible, and Make-based deployment pipeline.
+Google Cloud infrastructure for Pilot Apps — Terraform, Ansible, and Make-based deployment pipeline.
 
 ## Components
 
