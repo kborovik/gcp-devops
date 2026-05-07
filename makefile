@@ -37,10 +37,22 @@ settings: ## Display settings
 
 lint: terraform-validate ansible-lint ## Run Terraform and Ansible linters
 
-deploy: ## Deploy to lab5-mailpilot-prd1 (override: google_project=...)
+deploy: terraform-validate ## Deploy to lab5-mailpilot-prd1 (override: google_project=...)
 	set -e
-	echo "==> Deploy $(google_project) <=="
-	$(MAKE) terraform-apply
+	echo "==> Plan check for $(google_project) <=="
+	rc=0
+	terraform -chdir=$(terraform_dir) plan -detailed-exitcode -input=false -refresh=true -var-file="$(terraform_tfvars)" -compact-warnings || rc=$$?
+	if [ $$rc -eq 2 ]; then
+		echo ""
+		echo "Terraform changes pending. Review plan above, then run:"
+		echo "  make terraform-apply"
+		echo "  make deploy"
+		exit 1
+	elif [ $$rc -ne 0 ]; then
+		exit $$rc
+	fi
+	echo ""
+	echo "==> Deploy $(google_project) (no infra changes) <=="
 	$(MAKE) gce-configure
 	$(MAKE) leadpilot-deploy
 

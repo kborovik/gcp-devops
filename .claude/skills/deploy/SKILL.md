@@ -47,8 +47,7 @@ V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-ex
 
 ## FRICTIONS (outstanding)
 
-|id|friction|workaround
-|F1|`make deploy` runs `terraform-apply -auto-approve` ∴ ⊥ plan review @ deploy time|run `make terraform-plan` first whenever `terraform/` ∨ `config/<project>/terraform.tfvars` touched
+⊥ outstanding @ time of writing. Append new entries here as discovered.
 
 ## INTERFACES
 
@@ -91,9 +90,9 @@ user: "/deploy"
   │   ├─ no → ask user to unlock gpg-agent → retry
   │   └─ yes → continue
   ├─ make deploy [google_project=<name>]
-  │   ├─ fail @ terraform → render plan, ask user
+  │   ├─ plan-check exit 2 (changes pending) → bail; user runs `make terraform-apply` then re-runs deploy
   │   ├─ fail @ gce-configure → trace task, render handler, ask
-  │   └─ fail @ leadpilot-deploy → check `gh release view`, fallback to explicit version
+  │   └─ fail @ leadpilot-deploy → check GitHub API auth (token decrypt), fallback to explicit `leadpilot_version=`
   └─ make gce-status ∧ make leadpilot-status → emit summary
 ```
 
