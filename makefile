@@ -75,29 +75,40 @@ ansible-lint: $(venv_stamp)
 # VM Configuration
 
 gce-configure: ansible-ready
-	$(eval TAILSCALE_AUTH_KEY := $(shell gpg -d $(secrets_dir)/TAILSCALE_AUTH_KEY.gpg 2>/dev/null))
-	$(eval POSTGRESQL_REMOTE_PASSWORD := $(shell gpg -d $(secrets_dir)/POSTGRESQL_REMOTE_PASSWORD.gpg 2>/dev/null))
+	TAILSCALE_AUTH_KEY=$$(gpg -d $(secrets_dir)/TAILSCALE_AUTH_KEY.gpg 2>/dev/null) || true
+	POSTGRESQL_REMOTE_PASSWORD=$$(gpg -d $(secrets_dir)/POSTGRESQL_REMOTE_PASSWORD.gpg 2>/dev/null) || true
+	if [ -z "$$TAILSCALE_AUTH_KEY" ] || [ -z "$$POSTGRESQL_REMOTE_PASSWORD" ]; then
+		echo "Error: failed to decrypt secrets in $(secrets_dir) (is gpg-agent unlocked?)"
+		exit 1
+	fi
 	for i in 1 2 3 4 5; do
 		$(ansible) all --module-name ping $(ansible_args) && break ||
 		if [ $$i -eq 5 ]; then exit 1; else sleep 6; fi;
 	done
 	$(ansible_playbook) $(ansible_args) \
-		--extra-vars 'tailscale_auth_key=$(TAILSCALE_AUTH_KEY) postgresql_remote_password=$(POSTGRESQL_REMOTE_PASSWORD)' \
+		--extra-vars "tailscale_auth_key=$$TAILSCALE_AUTH_KEY postgresql_remote_password=$$POSTGRESQL_REMOTE_PASSWORD" \
 		ansible/playbook-vm-config.yaml
 	$(MAKE) -C $(secrets_dir) clean
 
 # LeadPilot Deployment
 
 leadpilot-deploy: ansible-ready
-	$(eval GITHUB_TOKEN := $(shell gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null))
-	$(eval leadpilot_version ?= $(shell gh release view --repo kborovik/leadpilot --json tagName -q '.tagName' 2>/dev/null | sed 's/^v//'))
-	@if [ -z "$(leadpilot_version)" ]; then \
-		echo "Error: leadpilot_version required. Usage: make leadpilot-deploy leadpilot_version=0.0.0"; \
-		exit 1; \
+	leadpilot_version='$(leadpilot_version)'
+	GITHUB_TOKEN=$$(gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null) || true
+	if [ -z "$$GITHUB_TOKEN" ]; then
+		echo "Error: failed to decrypt $(secrets_dir)/GITHUB_TOKEN.gpg (is gpg-agent unlocked?)"
+		exit 1
 	fi
-	echo "==> Deploy LeadPilot v$(leadpilot_version) to $(google_project) <=="
+	if [ -z "$$leadpilot_version" ]; then
+		leadpilot_version=$$(curl -fsSL -H "Authorization: Bearer $$GITHUB_TOKEN" https://api.github.com/repos/kborovik/leadpilot/releases/latest 2>/dev/null | jq -r '.tag_name // empty' | sed 's/^v//') || true
+	fi
+	if [ -z "$$leadpilot_version" ]; then
+		echo "Error: could not detect latest leadpilot release. Pass explicitly: make leadpilot-deploy leadpilot_version=X.Y.Z"
+		exit 1
+	fi
+	echo "==> Deploy LeadPilot v$$leadpilot_version to $(google_project) <=="
 	$(ansible_playbook) $(ansible_args) \
-		--extra-vars 'leadpilot_version=$(leadpilot_version) leadpilot_github_token=$(GITHUB_TOKEN)' \
+		--extra-vars "leadpilot_version=$$leadpilot_version leadpilot_github_token=$$GITHUB_TOKEN" \
 		ansible/playbook-leadpilot-deploy.yaml
 	$(MAKE) -C $(secrets_dir) clean
 

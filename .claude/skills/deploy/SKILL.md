@@ -48,8 +48,7 @@ V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-ex
 ## FRICTIONS (outstanding)
 
 |id|friction|workaround
-|F1|`leadpilot-deploy` needs `gh release view` → ! gh auth ∧ release exists @ `kborovik/leadpilot`; silent fallback to empty version → cryptic "leadpilot_version required" error|fall back to explicit `make leadpilot-deploy leadpilot_version=X.Y.Z`
-|F2|`make deploy` runs `terraform-apply -auto-approve` ∴ ⊥ plan review @ deploy time|run `make terraform-plan` first whenever `terraform/` ∨ `config/<project>/terraform.tfvars` touched
+|F1|`make deploy` runs `terraform-apply -auto-approve` ∴ ⊥ plan review @ deploy time|run `make terraform-plan` first whenever `terraform/` ∨ `config/<project>/terraform.tfvars` touched
 
 ## INTERFACES
 
