@@ -94,3 +94,19 @@
   become: true
   become_user: '{{ mailpilot_user }}'
   changed_when: false
+
+- name: Install mailpilot systemd unit
+  ansible.builtin.template:
+    src: mailpilot.service.j2
+    dest: /etc/systemd/system/mailpilot.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart mailpilot
+
+- name: Enable and start mailpilot service
+  ansible.builtin.systemd:
+    name: mailpilot.service
+    state: started
+    enabled: true
+    daemon_reload: true
