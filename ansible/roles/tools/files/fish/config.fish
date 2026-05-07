@@ -33,7 +33,7 @@ if status is-interactive
     set --global __fish_git_prompt_color_cleanstate a6da95
     set --global __fish_git_prompt_color_merging c6a0f6
 
-    bind alt-space accept-autosuggestion
+    bind ctrl-f accept-autosuggestion
     bind alt-j down-or-search
     bind alt-k up-or-search
 
