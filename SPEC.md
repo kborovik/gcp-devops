@@ -39,7 +39,7 @@ Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS,
 - V5: `make deploy` ! plan-check before apply → exit 1 ∧ surface plan if pending TF changes
 - V6: per-project cfg ∈ `config/<p>/` only — ⊥ ∈ `terraform/` ∨ `ansible/`
 - V7: default `google_project` ≡ `lab5-mailpilot-prd1` (prod) → dev work ! pass `google_project=lab5-mailpilot-dev1` explicitly; DEV1 currently dormant (cost-suppressed; ~99% testing ∈ upstream app repos) — reactivate when data volume outgrows app-repo dev loops
-- V8: prod deploy (`google_project ≡ lab5-mailpilot-prd1`) ! gated — `*-deploy` ∧ `deploy` targets ⊥ invoke ansible-playbook against prd unless explicit `confirm=prd1` ∨ interactive y/N; ∴ misconfig (incl. `make -n` under `.ONESHELL`, typo'd target, copy-paste shell history) ⊥ mutate prod
+- V8: prod deploy (`google_project ≡ lab5-mailpilot-prd1`) ! gated — `*-deploy` ∧ `deploy` targets ⊥ invoke ansible-playbook against prd unless explicit `confirm=prd1` ∨ interactive `yes`-typed confirm (literal "yes", ⊥ y/N); ∴ misconfig (incl. `make -n` under `.ONESHELL`, typo'd target, copy-paste shell history) ⊥ mutate prod
 
 ## §T
 
