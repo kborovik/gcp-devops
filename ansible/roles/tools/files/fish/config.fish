@@ -1,22 +1,13 @@
 if status is-interactive
 
-    set --global --export HOMEBREW_PREFIX /opt/homebrew
-
-    if test (uname) = Darwin; and test -x $HOMEBREW_PREFIX/bin/brew
-        eval ($HOMEBREW_PREFIX/bin/brew shellenv)
-    end
-
     fish_add_path --global \
-        ~/pilot/current/bin \
         ~/.claude/local \
         ~/go/bin \
         ~/.cargo/bin \
         ~/.local/bin \
         ~/.opencode/bin \
         ~/.bun/bin \
-        ~/.npm-global/bin \
-        $HOMEBREW_PREFIX/opt/make/libexec/gnubin \
-        $HOMEBREW_PREFIX/opt/postgresql@18/bin
+        ~/.npm-global/bin
 
     set --global --export EDITOR vim
     set --global --export VISUAL vim
@@ -104,18 +95,6 @@ if status is-interactive
 
     function shred --description 'shred -ufv'
         command shred -ufv $argv
-    end
-
-    if test (uname) = Darwin; and test -x $HOMEBREW_PREFIX/bin/gln
-        function ln --description 'GNU ln replacement'
-            $HOMEBREW_PREFIX/bin/gln $argv
-        end
-    end
-
-    if test (uname) = Darwin
-        function top --description 'top with custom stats'
-            command top -stats command,cpu,time,mem,state,user $argv
-        end
     end
 
 end
