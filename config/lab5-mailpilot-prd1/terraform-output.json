@@ -1,0 +1,25 @@
+{
+  "ansible_hosts": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        [
+          "object",
+          {
+            "dns": "string",
+            "ip": "string",
+            "name": "string"
+          }
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "dns": "mailpilot-prd1.lab5.ca",
+        "ip": "104.196.155.22",
+        "name": "mailpilot-1"
+      }
+    ]
+  }
+}

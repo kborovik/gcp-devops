@@ -45,15 +45,11 @@ V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-ex
 
 `gpg -d secrets/<f>.gpg >/dev/null` → fast probe; fail → ask user to unlock gpg-agent.
 
-## FRICTIONS (observed, ⊥ auto-fix)
+## FRICTIONS (outstanding)
 
 |id|friction|workaround
-|F1|`make lint` fails ≡ V5 violation → bail; fix ∨ scope-suppress in `.ansible-lint`|RESOLVED: cosmetic rules suppressed in `.ansible-lint`; remaining = real bugs ∨ collection-resolution issue (see F6)
-|F6|ansible-lint runs in own venv ⊥ shares ansible-core's collections → spurious `syntax-check[unknown-module]` for `ansible.posix.*` ∧ `community.general.*`|local-pinned ansible env (uv venv ∨ requirements.txt @ repo root) so both binaries share Python ∧ collections
-|F2|`config/<project>/terraform-output.json` gitignored → fresh clone ⊥ ansible-inventory|run `make terraform-apply` first ∨ `terraform output -json > <path>`
-|F3|`leadpilot-deploy` needs `gh release view` → ! gh auth ∧ release exists @ `kborovik/leadpilot`|fall back to explicit `leadpilot_version=X.Y.Z`
-|F4|`make deploy` runs `terraform-apply` w/ `-auto-approve` ∴ ⊥ plan review|run `make terraform-plan` first when infra touched
-|F5|prod deploy hook blocks bare `make deploy` w/o user directive|user types "deploy to prod" ∨ override w/ explicit ack
+|F1|`leadpilot-deploy` needs `gh release view` → ! gh auth ∧ release exists @ `kborovik/leadpilot`; silent fallback to empty version → cryptic "leadpilot_version required" error|fall back to explicit `make leadpilot-deploy leadpilot_version=X.Y.Z`
+|F2|`make deploy` runs `terraform-apply -auto-approve` ∴ ⊥ plan review @ deploy time|run `make terraform-plan` first whenever `terraform/` ∨ `config/<project>/terraform.tfvars` touched
 
 ## INTERFACES
 
