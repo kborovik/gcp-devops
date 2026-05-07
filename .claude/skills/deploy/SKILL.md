@@ -20,6 +20,7 @@ V3: prod (`lab5-mailpilot-prd1`) → ! explicit user "yes deploy to prod" before
 V4: deploy ≡ `make deploy` ∴ submakes inherit `google_project` via `.EXPORT_ALL_VARIABLES`. ⊥ pass per-submake.
 V5: ∀ deploy → `make lint` ! exit 0 first. lint failure ≡ deploy bail. fix all violations (∨ scope-suppress in `.ansible-lint`) ∧ retry; ⊥ proceed dirty.
 V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-exec cmd='systemctl status leadpilot.timer'`).
+V7: ∀ deploy failure (lint fail, plan-check exit 2, gce-configure fail, leadpilot-deploy fail, post-deploy verify fail) → ! auto-invoke `/sdd:spec bug:` w/ failing stage + observed symptom + cmd output excerpt before surfacing fix to user. ⊥ retry ∨ patch silently. Backprop skill decides if new §V invariant prevents recurrence.
 
 ## TASKS
 
@@ -30,6 +31,7 @@ V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-ex
 |T4|.|ask user confirmation w/ project name + change summary|V3
 |T5|.|run `make deploy` (∨ `make deploy google_project=<name>`)|V4
 |T6|.|run `make gce-status` ∧ `make leadpilot-status` → emit summary|V6
+|T7|.|on any failure in T3/T5/T6 → invoke `/sdd:spec bug: <stage> — <symptom>` w/ cmd output excerpt; ⊥ skip on transient/retry-class fail (spec skill triages)|V7
 
 ## SECRETS PREFLIGHT
 
@@ -85,15 +87,17 @@ user: "/deploy"
   │   └─ no → continue (dev/non-prod ⊥ require extra ack)
   ├─ make lint
   │   ├─ pass (exit 0) → continue
-  │   └─ fail → bail; fix violations (∨ scope-suppress in `.ansible-lint`) ∧ retry. ⊥ proceed.
+  │   └─ fail → invoke `/sdd:spec bug: lint — <rule_id> @ <file>:<line>` w/ excerpt → fix violations (∨ scope-suppress in `.ansible-lint`) ∧ retry. ⊥ proceed.
   ├─ secrets preflight → all gpg-decrypt OK?
   │   ├─ no → ask user to unlock gpg-agent → retry
   │   └─ yes → continue
   ├─ make deploy [google_project=<name>]
-  │   ├─ plan-check exit 2 (changes pending) → bail; user runs `make terraform-apply` then re-runs deploy
-  │   ├─ fail @ gce-configure → trace task, render handler, ask
-  │   └─ fail @ leadpilot-deploy → check GitHub API auth (token decrypt), fallback to explicit `leadpilot_version=`
-  └─ make gce-status ∧ make leadpilot-status → emit summary
+  │   ├─ plan-check exit 2 (changes pending) → invoke `/sdd:spec bug: tf-plan-drift — <resources>` → bail; user runs `make terraform-apply` then re-runs deploy
+  │   ├─ fail @ gce-configure → invoke `/sdd:spec bug: gce-configure — <task> <handler>` w/ ansible output excerpt → render handler, ask
+  │   └─ fail @ leadpilot-deploy → invoke `/sdd:spec bug: leadpilot-deploy — <stage>` w/ excerpt → check GitHub API auth (token decrypt), fallback to explicit `leadpilot_version=`
+  └─ make gce-status ∧ make leadpilot-status
+      ├─ pass → emit summary
+      └─ fail (timer ⊥ active, version mismatch, instance ⊥ RUNNING) → invoke `/sdd:spec bug: post-deploy-verify — <symptom>` w/ status excerpt → surface to user
 ```
 
 ## POST-DEPLOY VERIFY
@@ -109,3 +113,4 @@ Render to user:
 - §V/§T citation style ≡ /sdd:glyph
 - commit ∀ post-deploy diff via /gh:commit
 - prod deploy gate enforced @ `~/.claude/settings.json` permission rules; this skill cooperates, ⊥ bypasses.
+- ∀ deploy-cycle failure → /sdd:spec bug: (per V7) → routes via /sdd:backprop → §B append + decide if new §V catches recurrence. ⊥ patch silently. Skip iff fail ≡ pure-mechanical (typo, one-off retry-class) per backprop skill triage.
