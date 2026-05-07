@@ -11,13 +11,11 @@
       {{ leadpilot_home }}/.local/bin/uv tool install
       --python {{ uv_python_version }}
       --upgrade
-      git+{{ leadpilot_github_repo }}@v{{ leadpilot_version }}
+      git+https://x-access-token:{{ leadpilot_github_token }}@github.com/kborovik/leadpilot@v{{ leadpilot_version }}
   become: true
   become_user: '{{ leadpilot_user }}'
   register: leadpilot_install
   changed_when: "'Installed' in leadpilot_install.stdout or 'Updated' in leadpilot_install.stdout"
-  environment:
-    UV_GIT_TOKEN: '{{ leadpilot_github_token }}'
 
 - name: Verify leadpilot installation
   ansible.builtin.command:

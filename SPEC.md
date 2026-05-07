@@ -51,7 +51,7 @@ Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS,
 |T3|x|add mailpilot deploy mirror — ansible role `mailpilot/`, `playbook-mailpilot-deploy.yaml`, Makefile `mailpilot-deploy` ∧ `mailpilot-status` targets, GitHub release fetch via `GITHUB_TOKEN`|V1,I.cmd
 |T4|x|gate prod deploy — `*-deploy` ∧ `deploy` targets refuse to invoke ansible-playbook when `google_project=lab5-mailpilot-prd1` unless `confirm=prd1` set ∨ interactive y/N answered|V8
 |T5|x|enforce V9 — set `SHELL := bash` ∧ `.SHELLFLAGS := -ec` ∈ Makefile head; verify ∀ multi-line recipe (`leadpilot-deploy`, `mailpilot-deploy`, `gce-configure`) propagates non-zero exit on mid-recipe failure|V9
-|T6|.|patch `ansible/roles/leadpilot/tasks/main.yaml` ∧ `ansible/roles/mailpilot/tasks/main.yaml` — replace `UV_GIT_TOKEN` env w/ in-URL creds (`git+https://x-access-token:{{ <app>_github_token }}@github.com/kborovik/<app>@v{{ <app>_version }}`); re-run leadpilot-deploy → install task transitions `failed` → `ok`; re-run mailpilot-deploy → install task ⊥ regress. mailpilot patch ≡ symmetry, ⊥ V10-required currently (public repo); future-proofs against visibility flip|V10,I.cmd
+|T6|x|patch `ansible/roles/leadpilot/tasks/main.yaml` ∧ `ansible/roles/mailpilot/tasks/main.yaml` — replace `UV_GIT_TOKEN` env w/ in-URL creds (`git+https://x-access-token:{{ <app>_github_token }}@github.com/kborovik/<app>@v{{ <app>_version }}`); re-run leadpilot-deploy → install task transitions `failed` → `ok`; re-run mailpilot-deploy → install task ⊥ regress. mailpilot patch ≡ symmetry, ⊥ V10-required currently (public repo); future-proofs against visibility flip|V10,I.cmd
 
 ## §B
 

@@ -11,13 +11,11 @@
       {{ mailpilot_home }}/.local/bin/uv tool install
       --python {{ uv_python_version }}
       --upgrade
-      git+{{ mailpilot_github_repo }}@v{{ mailpilot_version }}
+      git+https://x-access-token:{{ mailpilot_github_token }}@github.com/kborovik/mailpilot@v{{ mailpilot_version }}
   become: true
   become_user: '{{ mailpilot_user }}'
   register: mailpilot_install
   changed_when: "'Installed' in mailpilot_install.stdout or 'Updated' in mailpilot_install.stdout"
-  environment:
-    UV_GIT_TOKEN: '{{ mailpilot_github_token }}'
 
 - name: Verify mailpilot installation
   ansible.builtin.command:
