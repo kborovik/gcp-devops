@@ -38,13 +38,12 @@ Provision ∧ configure GCP infra ∀ MailPilot apps. Terraform → infra (GCE, 
 - V5: `make deploy` ! plan-check before apply → exit 1 ∧ surface plan if pending TF changes
 - V6: per-project cfg ∈ `config/<p>/` only — ⊥ ∈ `terraform/` ∨ `ansible/`
 - V7: default `google_project` ≡ `lab5-mailpilot-prd1` (prod) → dev work ! pass `google_project=lab5-mailpilot-dev1` explicitly
-- V8: ZFS rollback restore drill ! exercised ≥ 1×/quarter on dev (`lab5-mailpilot-dev1`); 2 quarters ⊥ verified ⊃ backup chain treated as unverified ∧ escalated
 
 ## §T
 
 |id|status|task|cites
 |T1|x|add `make verify` → audits V1 (grep plaintext secrets), V2 (inventory drift vs `terraform-output.json`), V6 (no per-project files outside `config/`)|V1,V2,V6
-|T2|x|document ZFS rollback restore-test cadence (smoke-test ≥ 1×/quarter on dev) ∈ README §Recovery|V8,I.cmd
+|T2|x|document ZFS rollback restore-test cadence (smoke-test ≥ 1×/quarter on dev) ∈ README §Recovery|V?,I.cmd
 
 ## §B
 
