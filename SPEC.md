@@ -2,7 +2,7 @@
 
 ## §G
 
-Provision ∧ configure GCP infra ∀ MailPilot apps. Terraform → infra (GCE, DNS, IAM, network). Ansible → VM cfg (ZFS, Postgres, Tailscale, ops agent). GPG → secrets. `make` ≡ sole driver.
+Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS, IAM, network). Ansible → VM cfg (ZFS, Postgres, Tailscale, ops agent). GPG → secrets. `make` ≡ sole driver.
 
 ## §C
 
@@ -20,7 +20,8 @@ Provision ∧ configure GCP infra ∀ MailPilot apps. Terraform → infra (GCE, 
 |cmd|`make terraform-apply`|apply ∧ refresh `terraform-output.json`|
 |cmd|`make gce-configure`|run `playbook-vm-config.yaml`|
 |cmd|`make leadpilot-deploy [leadpilot_version=<v>]`|run `playbook-leadpilot-deploy.yaml`|
-|cmd|`make deploy`|plan-check → bail on drift, else gce-configure + leadpilot-deploy|
+|cmd|`make mailpilot-deploy [mailpilot_version=<v>]`|run `playbook-mailpilot-deploy.yaml`|
+|cmd|`make deploy`|plan-check → bail on drift, else gce-configure + leadpilot-deploy + mailpilot-deploy|
 |cmd|`make verify`|audit §V1 (secrets ⊥ plaintext) ∧ §V2 (inventory drift) ∧ §V6 (per-project files)|
 |cmd|`make gce-{ssh,status,start,stop}` ∨ `make gce-exec cmd=…`|VM ops|
 |env|`google_project`|default `lab5-mailpilot-prd1`|
@@ -44,6 +45,7 @@ Provision ∧ configure GCP infra ∀ MailPilot apps. Terraform → infra (GCE, 
 |id|status|task|cites
 |T1|x|add `make verify` → audits V1 (grep plaintext secrets), V2 (inventory drift vs `terraform-output.json`), V6 (no per-project files outside `config/`)|V1,V2,V6
 |T2|x|document ZFS rollback restore-test cadence (smoke-test ≥ 1×/quarter on dev) ∈ README §Recovery|V?,I.cmd
+|T3|.|add mailpilot deploy mirror — ansible role `mailpilot/`, `playbook-mailpilot-deploy.yaml`, Makefile `mailpilot-deploy` ∧ `mailpilot-status` targets, GitHub release fetch via `GITHUB_TOKEN`|V1,I.cmd
 
 ## §B
 
