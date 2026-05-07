@@ -21,6 +21,7 @@ V4: deploy ≡ `make deploy` ∴ submakes inherit `google_project` via `.EXPORT_
 V5: ∀ deploy → `make lint` ! exit 0 first. lint failure ≡ deploy bail. fix all violations (∨ scope-suppress in `.ansible-lint`) ∧ retry; ⊥ proceed dirty.
 V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-exec cmd='systemctl status leadpilot.timer'`).
 V7: ∀ deploy failure (lint fail, plan-check exit 2, gce-configure fail, leadpilot-deploy fail, post-deploy verify fail) → ! auto-invoke `/sdd:spec bug:` w/ failing stage + observed symptom + cmd output excerpt before surfacing fix to user. ⊥ retry ∨ patch silently. Backprop skill decides if new §V invariant prevents recurrence.
+V8: prod gate is var-driven, ⊥ stdin-driven. Makefile `require_prd_confirm` reads `confirm=prd1` ∧ fires once per submake (`deploy`, `gce-configure`, `leadpilot-deploy`). ∴ ∀ non-interactive prod deploy → `make deploy confirm=prd1` (propagates to all submakes). ⊥ `echo yes | make deploy` — outer gate eats the single yes ∧ inner submake gate starves @ EOF.
 
 ## TASKS
 
@@ -29,7 +30,7 @@ V7: ∀ deploy failure (lint fail, plan-check exit 2, gce-configure fail, leadpi
 |T2|.|run `make settings` → echo project to user|V2
 |T3|.|run `make lint` → ! exit 0; ⊥ proceed otherwise|V5
 |T4|.|ask user confirmation w/ project name + change summary|V3
-|T5|.|run `make deploy` (∨ `make deploy google_project=<name>`)|V4
+|T5|.|run `make deploy confirm=prd1` (∨ `make deploy google_project=<name> confirm=prd1` for prod; omit `confirm` for non-prod)|V4,V8
 |T6|.|run `make gce-status` ∧ `make leadpilot-status` → emit summary|V6
 |T7|.|on any failure in T3/T5/T6 → invoke `/sdd:spec bug: <stage> — <symptom>` w/ cmd output excerpt; ⊥ skip on transient/retry-class fail (spec skill triages)|V7
 
@@ -51,10 +52,14 @@ V7: ∀ deploy failure (lint fail, plan-check exit 2, gce-configure fail, leadpi
 
 ⊥ outstanding @ time of writing. Append new entries here as discovered.
 
+### Resolved
+
+- **2026-05-07 — stdin-yes prod gate starvation**: skill ran `echo yes | make deploy` to satisfy prod confirm; outer `deploy` recipe ate the single yes, inner `leadpilot-deploy` submake's gate hit EOF ∧ bailed w/ `aborted: pass confirm=prd1 to skip prompt`. Recovered via `make leadpilot-deploy confirm=prd1`. Backpropped ≡ §V8 ∧ T5 update ∧ INTERFACES update ∧ DECISION TREE update. Lesson: Makefile §V8 (`require_prd_confirm`) is var-driven ∧ fires per-submake, ⊥ stdin-driven once.
+
 ## INTERFACES
 
 ```
-cmd: make deploy [google_project=<name>]      → terraform-apply + gce-configure + leadpilot-deploy
+cmd: make deploy confirm=prd1 [google_project=<name>]  → terraform-apply + gce-configure + leadpilot-deploy (prod ! `confirm=prd1` per V8; non-prod omits)
 cmd: make lint                                → terraform-validate + ansible-lint
 cmd: make settings                            → echo project/region/zone/config_dir
 cmd: make gce-status                          → gcloud instances list
@@ -91,7 +96,7 @@ user: "/deploy"
   ├─ secrets preflight → all gpg-decrypt OK?
   │   ├─ no → ask user to unlock gpg-agent → retry
   │   └─ yes → continue
-  ├─ make deploy [google_project=<name>]
+  ├─ make deploy confirm=prd1 [google_project=<name>]   (confirm=prd1 ∀ prod per V8; omit ∀ non-prod)
   │   ├─ plan-check exit 2 (changes pending) → invoke `/sdd:spec bug: tf-plan-drift — <resources>` → bail; user runs `make terraform-apply` then re-runs deploy
   │   ├─ fail @ gce-configure → invoke `/sdd:spec bug: gce-configure — <task> <handler>` w/ ansible output excerpt → render handler, ask
   │   └─ fail @ leadpilot-deploy → invoke `/sdd:spec bug: leadpilot-deploy — <stage>` w/ excerpt → check GitHub API auth (token decrypt), fallback to explicit `leadpilot_version=`
