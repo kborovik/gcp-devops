@@ -2,3 +2,5 @@
 **/terraform-output.json
 .ralph/
 .ansible/
+.venv/
+ansible/.collections/

@@ -18,7 +18,7 @@ V1: ∀ deploy → working tree clean ∨ user ack dirty state. ⊥ deploy unsta
 V2: ∀ deploy → target project named in confirmation prompt. ⊥ implicit prod.
 V3: prod (`lab5-mailpilot-prd1`) → ! explicit user "yes deploy to prod" before `make deploy`. Hook will block otherwise (correct behavior).
 V4: deploy ≡ `make deploy` ∴ submakes inherit `google_project` via `.EXPORT_ALL_VARIABLES`. ⊥ pass per-submake.
-V5: lint pre-existing failures (role-prefix, partial-become @ `roles/{leadpilot,postgresql,zfs,tools}`) → ⊥ block deploy. flag, ask user, ⊥ auto-fix.
+V5: ∀ deploy → `make lint` ! exit 0 first. lint failure ≡ deploy bail. fix all violations (∨ scope-suppress in `.ansible-lint`) ∧ retry; ⊥ proceed dirty.
 V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-exec cmd='systemctl status leadpilot.timer'`).
 
 ## TASKS
@@ -26,7 +26,7 @@ V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-ex
 |id|status|task|cites
 |T1|.|read working tree state (git status, branch)|V1
 |T2|.|run `make settings` → echo project to user|V2
-|T3|.|run `make lint` → flag any new failures (diff vs known baseline @ §B)|V5
+|T3|.|run `make lint` → ! exit 0; ⊥ proceed otherwise|V5
 |T4|.|ask user confirmation w/ project name + change summary|V3
 |T5|.|run `make deploy` (∨ `make deploy google_project=<name>`)|V4
 |T6|.|run `make gce-status` ∧ `make leadpilot-status` → emit summary|V6
@@ -48,7 +48,8 @@ V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-ex
 ## FRICTIONS (observed, ⊥ auto-fix)
 
 |id|friction|workaround
-|F1|`make lint` fails on pre-existing role-prefix/partial-become|note → ask user; ⊥ block deploy
+|F1|`make lint` fails ≡ V5 violation → bail; fix ∨ scope-suppress in `.ansible-lint`|RESOLVED: cosmetic rules suppressed in `.ansible-lint`; remaining = real bugs ∨ collection-resolution issue (see F6)
+|F6|ansible-lint runs in own venv ⊥ shares ansible-core's collections → spurious `syntax-check[unknown-module]` for `ansible.posix.*` ∧ `community.general.*`|local-pinned ansible env (uv venv ∨ requirements.txt @ repo root) so both binaries share Python ∧ collections
 |F2|`config/<project>/terraform-output.json` gitignored → fresh clone ⊥ ansible-inventory|run `make terraform-apply` first ∨ `terraform output -json > <path>`
 |F3|`leadpilot-deploy` needs `gh release view` → ! gh auth ∧ release exists @ `kborovik/leadpilot`|fall back to explicit `leadpilot_version=X.Y.Z`
 |F4|`make deploy` runs `terraform-apply` w/ `-auto-approve` ∴ ⊥ plan review|run `make terraform-plan` first when infra touched
@@ -89,8 +90,8 @@ user: "/deploy"
   │   │         └─ yes → continue
   │   └─ no → continue (dev/non-prod ⊥ require extra ack)
   ├─ make lint
-  │   ├─ pass → continue
-  │   └─ fail → diff vs known baseline; new failures → fix ∨ ask
+  │   ├─ pass (exit 0) → continue
+  │   └─ fail → bail; fix violations (∨ scope-suppress in `.ansible-lint`) ∧ retry. ⊥ proceed.
   ├─ secrets preflight → all gpg-decrypt OK?
   │   ├─ no → ask user to unlock gpg-agent → retry
   │   └─ yes → continue

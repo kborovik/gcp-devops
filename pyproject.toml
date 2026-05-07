@@ -1,0 +1,9 @@
+[project]
+name = "gcp-lab5-apps"
+version = "0.1.0"
+description = "Tooling deps for ansible playbook lint and execution"
+requires-python = ">=3.12"
+dependencies = [
+    "ansible-core==2.20.5",
+    "ansible-lint==26.4.0",
+]

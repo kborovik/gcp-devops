@@ -12,6 +12,7 @@
       --python {{ uv_python_version }}
       --upgrade
       git+{{ leadpilot_github_repo }}@v{{ leadpilot_version }}
+  become: true
   become_user: '{{ leadpilot_user }}'
   register: leadpilot_install
   changed_when: "'Installed' in leadpilot_install.stdout or 'Updated' in leadpilot_install.stdout"
@@ -21,6 +22,7 @@
 - name: Verify leadpilot installation
   ansible.builtin.command:
     cmd: '{{ leadpilot_home }}/.local/bin/leadpilot --version'
+  become: true
   become_user: '{{ leadpilot_user }}'
   register: leadpilot_version_check
   changed_when: false
@@ -46,6 +48,7 @@
 - name: Check if ubuntu PostgreSQL role exists
   ansible.builtin.command:
     cmd: psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='ubuntu'" postgres
+  become: true
   become_user: postgres
   register: ubuntu_pg_role_check
   changed_when: false
@@ -53,12 +56,14 @@
 - name: Create ubuntu PostgreSQL role if missing
   ansible.builtin.command:
     cmd: psql -c "CREATE ROLE ubuntu WITH LOGIN CREATEDB"
+  become: true
   become_user: postgres
   when: ubuntu_pg_role_check.stdout != '1'
 
 - name: Check if leadpilot database exists
   ansible.builtin.command:
     cmd: psql -tAc "SELECT 1 FROM pg_database WHERE datname='leadpilot'" postgres
+  become: true
   become_user: postgres
   register: leadpilot_pg_db_check
   changed_when: false
@@ -66,12 +71,14 @@
 - name: Create leadpilot database if missing
   ansible.builtin.command:
     cmd: createdb -O ubuntu leadpilot
+  become: true
   become_user: postgres
   when: leadpilot_pg_db_check.stdout != '1'
 
 - name: Check public schema owner in leadpilot database
   ansible.builtin.command:
     cmd: psql -tAc "SELECT nspowner::regrole FROM pg_namespace WHERE nspname='public'" leadpilot
+  become: true
   become_user: postgres
   register: public_schema_owner
   changed_when: false
@@ -79,6 +86,7 @@
 - name: Grant ubuntu ownership of public schema in leadpilot database
   ansible.builtin.command:
     cmd: psql -d leadpilot -c "ALTER SCHEMA public OWNER TO ubuntu"
+  become: true
   become_user: postgres
   when: public_schema_owner.stdout != 'ubuntu'
 
@@ -101,5 +109,6 @@
 - name: Initialize database schema
   ansible.builtin.command:
     cmd: '{{ leadpilot_home }}/.local/bin/leadpilot status'
+  become: true
   become_user: '{{ leadpilot_user }}'
   changed_when: false

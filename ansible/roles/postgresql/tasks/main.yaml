@@ -108,6 +108,7 @@
     enabled: true
 
 - name: Create PostgreSQL remote user
+  become: true
   become_user: postgres
   ansible.builtin.command:
     cmd: >-

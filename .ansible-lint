@@ -1,0 +1,12 @@
+---
+exclude_paths:
+  - .ansible/
+  - .venv/
+  - config/
+  - ansible/.collections/
+
+skip_list:
+  - var-naming[no-role-prefix]
+  - name[template]
+  - command-instead-of-module
+  - no-changed-when

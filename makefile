@@ -15,6 +15,20 @@ root_dir := $(git_root)
 secrets_dir := $(root_dir)/secrets
 config_dir := $(root_dir)/config/$(google_project)
 
+venv_dir := $(root_dir)/.venv
+venv_stamp := $(venv_dir)/.stamp
+ansible := $(venv_dir)/bin/ansible
+ansible_playbook := $(venv_dir)/bin/ansible-playbook
+ansible_galaxy := $(venv_dir)/bin/ansible-galaxy
+ansible_lint := $(venv_dir)/bin/ansible-lint
+
+$(venv_stamp): pyproject.toml ansible/requirements.yml
+	uv sync
+	$(ansible_galaxy) collection install -r ansible/requirements.yml --force >/dev/null
+	touch $@
+
+venv: $(venv_stamp)
+
 settings: ## Display settings
 	echo "google_project: $(google_project)"
 	echo "google_region:  $(google_region)"
@@ -40,7 +54,6 @@ ansible_signing_key := $(secrets_dir)/github-signing.key
 ansible_args := --inventory $(ansible_inventory) --user $(ansible_user) --private-key $(ansible_ssh_key) --extra-vars ansible_python_interpreter='/usr/bin/python3.12'
 
 SSH_COMMON_ARGS := -o StrictHostKeyChecking=no
-ANSIBLE_HOST_KEY_CHECKING := False
 
 $(ansible_ssh_key):
 	gpg $@.gpg && chmod 600 $@
@@ -54,10 +67,10 @@ ansible-inventory:
 	    echo "$${dns}" > $(ansible_inventory)/$$name
 	done
 
-ansible-ready: ansible-inventory $(ansible_ssh_key) $(ansible_signing_key)
+ansible-ready: $(venv_stamp) ansible-inventory $(ansible_ssh_key) $(ansible_signing_key)
 
-ansible-lint:
-	ansible-lint $(ansible_dir)
+ansible-lint: $(venv_stamp)
+	$(ansible_lint) $(ansible_dir)
 
 # VM Configuration
 
@@ -65,10 +78,10 @@ gce-configure: ansible-ready
 	$(eval TAILSCALE_AUTH_KEY := $(shell gpg -d $(secrets_dir)/TAILSCALE_AUTH_KEY.gpg 2>/dev/null))
 	$(eval POSTGRESQL_REMOTE_PASSWORD := $(shell gpg -d $(secrets_dir)/POSTGRESQL_REMOTE_PASSWORD.gpg 2>/dev/null))
 	for i in 1 2 3 4 5; do
-		ansible all --module-name ping $(ansible_args) && break ||
+		$(ansible) all --module-name ping $(ansible_args) && break ||
 		if [ $$i -eq 5 ]; then exit 1; else sleep 6; fi;
 	done
-	ansible-playbook $(ansible_args) \
+	$(ansible_playbook) $(ansible_args) \
 		--extra-vars 'tailscale_auth_key=$(TAILSCALE_AUTH_KEY) postgresql_remote_password=$(POSTGRESQL_REMOTE_PASSWORD)' \
 		ansible/playbook-vm-config.yaml
 	$(MAKE) -C $(secrets_dir) clean
@@ -83,13 +96,13 @@ leadpilot-deploy: ansible-ready
 		exit 1; \
 	fi
 	echo "==> Deploy LeadPilot v$(leadpilot_version) to $(google_project) <=="
-	ansible-playbook $(ansible_args) \
+	$(ansible_playbook) $(ansible_args) \
 		--extra-vars 'leadpilot_version=$(leadpilot_version) leadpilot_github_token=$(GITHUB_TOKEN)' \
 		ansible/playbook-leadpilot-deploy.yaml
 	$(MAKE) -C $(secrets_dir) clean
 
 leadpilot-status: ansible-ready
-	ansible $(ansible_args) all -m shell -a \
+	$(ansible) $(ansible_args) all -m shell -a \
 		"leadpilot --version; echo '---'; leadpilot status; echo '---'; crontab -l | grep leadpilot || true"
 
 # Terraform
@@ -143,7 +156,7 @@ gce-start:
 
 gce-exec: ansible-ready
 	@if [ -z "$(cmd)" ]; then echo "Error: cmd required. Usage: make gce-exec cmd='...'"; exit 1; fi
-	ansible $(ansible_args) all -m shell -a "$(cmd)"
+	$(ansible) $(ansible_args) all -m shell -a "$(cmd)"
 
 gce-ssh: $(ansible_ssh_key)
 	ssh $(SSH_COMMON_ARGS) -i $(ansible_ssh_key) $(ansible_user)@$(shell jq -r '.ansible_hosts.value[0].dns' $(terraform_output))
@@ -182,6 +195,6 @@ ifeq ($(shell which terraform),)
 $(error Missing terraform https://www.terraform.io/downloads)
 endif
 
-ifeq ($(shell which ansible),)
-$(error Missing ansible https://www.ansible.com/)
+ifeq ($(shell which uv),)
+$(error Missing uv https://docs.astral.sh/uv/)
 endif

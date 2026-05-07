@@ -177,3 +177,4 @@
     owner: ubuntu
     group: ubuntu
     state: directory
+    mode: '0755'

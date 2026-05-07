@@ -14,6 +14,7 @@
     mode: '0600'
 
 - name: Import GPG signing key
+  become: true
   become_user: '{{ gpg_user }}'
   ansible.builtin.command:
     cmd: gpg --batch --import /tmp/signing-key.gpg
@@ -26,13 +27,16 @@
     state: absent
 
 - name: Get GPG signing key ID
+  become: true
   become_user: '{{ gpg_user }}'
   ansible.builtin.shell:
-    cmd: gpg --list-secret-keys --keyid-format long --with-colons | grep '^sec' | head -1 | cut -d':' -f5
+    cmd: set -o pipefail && gpg --list-secret-keys --keyid-format long --with-colons | grep '^sec' | head -1 | cut -d':' -f5
+    executable: /bin/bash
   register: gpg_key_id
   changed_when: false
 
 - name: Configure git commit signing
+  become: true
   become_user: '{{ gpg_user }}'
   ansible.builtin.command:
     cmd: 'git config --global {{ item.name }} ''{{ item.value }}'''
