@@ -95,6 +95,32 @@
   become_user: '{{ mailpilot_user }}'
   changed_when: false
 
+- name: Ensure mailpilot config directory
+  ansible.builtin.file:
+    path: '{{ mailpilot_home }}/.mailpilot'
+    state: directory
+    owner: '{{ mailpilot_user }}'
+    group: '{{ mailpilot_group }}'
+    mode: '0700'
+
+- name: Render mailpilot config.json
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: '{{ mailpilot_home }}/.mailpilot/config.json'
+    owner: '{{ mailpilot_user }}'
+    group: '{{ mailpilot_group }}'
+    mode: '0600'
+  notify: Restart mailpilot
+
+- name: Install mailpilot google service-account credentials
+  ansible.builtin.copy:
+    src: '{{ mailpilot_google_credentials_path }}'
+    dest: '{{ mailpilot_home }}/.mailpilot/google-credentials.json'
+    owner: '{{ mailpilot_user }}'
+    group: '{{ mailpilot_group }}'
+    mode: '0600'
+  notify: Restart mailpilot
+
 - name: Install mailpilot systemd unit
   ansible.builtin.template:
     src: mailpilot.service.j2

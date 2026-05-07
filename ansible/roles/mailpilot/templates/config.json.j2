@@ -1,0 +1,11 @@
+{
+  "database_url": "postgresql://localhost/mailpilot",
+  "logfire_token": "{{ mailpilot_logfire_token }}",
+  "logfire_environment": "{{ mailpilot_logfire_environment }}",
+  "anthropic_api_key": "{{ mailpilot_anthropic_api_key }}",
+  "anthropic_model": "claude-sonnet-4-6",
+  "google_pubsub_topic": "gmail-watch",
+  "google_pubsub_subscription": "mailpilot-watch",
+  "google_application_credentials": "{{ mailpilot_home }}/.mailpilot/google-credentials.json",
+  "run_interval": 30
+}
