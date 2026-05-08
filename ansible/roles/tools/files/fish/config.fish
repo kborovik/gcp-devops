@@ -33,10 +33,6 @@ if status is-interactive
     set --global __fish_git_prompt_color_cleanstate a6da95
     set --global __fish_git_prompt_color_merging c6a0f6
 
-    bind ctrl-f accept-autosuggestion
-    bind alt-j down-or-search
-    bind alt-k up-or-search
-
     function gaa --description 'git add --all'
         git add --all $argv
     end
