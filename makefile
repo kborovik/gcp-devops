@@ -222,21 +222,6 @@ mailpilot-deploy: ansible-ready
 		echo "Error: failed to decrypt $(secrets_dir)/GITHUB_TOKEN.gpg (is gpg-agent unlocked?)"
 		exit 1
 	fi
-	ANTHROPIC_API_KEY=$$(gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null) || true
-	if [ -z "$$ANTHROPIC_API_KEY" ]; then
-		echo "Error: failed to decrypt $(secrets_dir)/ANTHROPIC_API_KEY.gpg"
-		exit 1
-	fi
-	LOGFIRE_TOKEN=$$(gpg -d $(secrets_dir)/LOGFIRE_TOKEN.gpg 2>/dev/null) || true
-	if [ -z "$$LOGFIRE_TOKEN" ]; then
-		echo "Error: failed to decrypt $(secrets_dir)/LOGFIRE_TOKEN.gpg"
-		exit 1
-	fi
-	gpg -d -o $(secrets_dir)/MAILPILOT_GOOGLE_CREDENTIALS.json $(secrets_dir)/MAILPILOT_GOOGLE_CREDENTIALS.json.gpg 2>/dev/null
-	if [ ! -s $(secrets_dir)/MAILPILOT_GOOGLE_CREDENTIALS.json ]; then
-		echo "Error: failed to decrypt $(secrets_dir)/MAILPILOT_GOOGLE_CREDENTIALS.json.gpg"
-		exit 1
-	fi
 	if [ -z "$$mailpilot_version" ]; then
 		mailpilot_version=$$(curl -fsSL -H "Authorization: Bearer $$GITHUB_TOKEN" https://api.github.com/repos/kborovik/mailpilot/releases/latest 2>/dev/null | jq -r '.tag_name // empty' | sed 's/^v//') || true
 	fi
@@ -246,7 +231,7 @@ mailpilot-deploy: ansible-ready
 	fi
 	echo "==> Deploy MailPilot v$$mailpilot_version to $(google_project) <=="
 	$(ansible_playbook) $(ansible_args) \
-		--extra-vars "mailpilot_version=$$mailpilot_version mailpilot_github_token=$$GITHUB_TOKEN mailpilot_anthropic_api_key=$$ANTHROPIC_API_KEY mailpilot_logfire_token=$$LOGFIRE_TOKEN mailpilot_google_credentials_path=$(secrets_dir)/MAILPILOT_GOOGLE_CREDENTIALS.json" \
+		--extra-vars "mailpilot_version=$$mailpilot_version mailpilot_github_token=$$GITHUB_TOKEN" \
 		ansible/playbook-mailpilot-deploy.yaml
 	$(MAKE) -C $(secrets_dir) clean
 

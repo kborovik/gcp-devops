@@ -9,8 +9,3 @@ uv_python_version: '3.14'
 
 mailpilot_github_repo: 'https://github.com/kborovik/mailpilot'
 mailpilot_github_token: ''
-
-mailpilot_anthropic_api_key: ''
-mailpilot_logfire_token: ''
-mailpilot_logfire_environment: production
-mailpilot_google_credentials_path: ''
