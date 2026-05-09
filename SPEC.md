@@ -58,6 +58,7 @@ Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS,
 |T8|x|(superseded by T10) added ANTHROPIC_API_KEY decrypt + ansible tasks render `config.json.j2` ∧ copy google-credentials.json + thread API keys as `--extra-vars`; `secrets/LOGFIRE_TOKEN.gpg` ∧ `secrets/MAILPILOT_GOOGLE_CREDENTIALS.json.gpg` ⊥ landed; entire impl dropped in T10 per amended §V12 (DB-bootstrap only)|V11,V12
 |T9|x|extend Makefile `mailpilot-status` — replace adhoc `mailpilot status` w/ `systemctl is-active mailpilot.service ; mailpilot --version ; journalctl -u mailpilot --no-pager -n 5`; aligns w/ /deploy V6 post-deploy verify|V11,I.cmd
 |T10|x|sync code to amended V12 — drop `ansible/roles/mailpilot/templates/config.json.j2`, drop `Render mailpilot config.json` ∧ `Install mailpilot google service-account credentials` tasks ∈ `roles/mailpilot/tasks/main.yaml`, drop `mailpilot_anthropic_api_key`/`mailpilot_logfire_token`/`mailpilot_logfire_environment`/`mailpilot_google_credentials_path` ∈ `roles/mailpilot/defaults/main.yaml`, drop ANTHROPIC_API_KEY/LOGFIRE_TOKEN/MAILPILOT_GOOGLE_CREDENTIALS decrypt ∧ `--extra-vars` threading ∈ `makefile` `mailpilot-deploy`|V12
+|T11|.|patch `ansible/roles/tools/tasks/main.yaml` — append task `uv self update` as ubuntu user (`/home/ubuntu/.local/bin/uv self update`), idempotent (`changed_when` keys off "Upgraded" ∈ stdout); ∴ ∀ `gce-configure` run brings uv → latest stable, ⊥ pinning. Single uv install on host (`leadpilot_home ≡ mailpilot_home ≡ /home/ubuntu`) → ⊥ duplicate ∈ app roles|I.cmd
 
 ## §B
 
