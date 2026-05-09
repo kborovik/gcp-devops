@@ -58,3 +58,11 @@
   become_user: ubuntu
   register: uv_python_install
   changed_when: "'Installed' in uv_python_install.stderr"
+
+- name: Update uv to latest stable
+  ansible.builtin.command:
+    cmd: /home/ubuntu/.local/bin/uv self update
+  become: true
+  become_user: ubuntu
+  register: uv_self_update
+  changed_when: "'Upgraded' in uv_self_update.stdout"
