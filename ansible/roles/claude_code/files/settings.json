@@ -1,0 +1,27 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "defaultMode": "acceptEdits"
+  },
+  "enabledPlugins": {
+    "firecrawl@claude-plugins-official": true,
+    "sdd@pilot-skills": true,
+    "core@pilot-skills": true,
+    "gh@pilot-skills": true,
+    "logfire@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "pilot-skills": {
+      "source": {
+        "source": "github",
+        "repo": "kborovik/pilot-skills"
+      },
+      "autoUpdate": true
+    }
+  },
+  "effortLevel": "xhigh",
+  "autoUpdatesChannel": "stable",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark-ansi",
+  "editorMode": "vim"
+}

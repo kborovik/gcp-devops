@@ -27,38 +27,6 @@
   ansible.builtin.debug:
     msg: 'Claude Code version: {{ claude_code_version.stdout }}'
 
-- name: Create Claude Code commands directory
-  ansible.builtin.file:
-    path: '{{ claude_code_home }}/.claude/commands'
-    state: directory
-    owner: '{{ claude_code_user }}'
-    group: '{{ claude_code_group }}'
-    mode: '0755'
-
-- name: Deploy Claude Code commands
-  ansible.builtin.copy:
-    src: 'commands/'
-    dest: '{{ claude_code_home }}/.claude/commands/'
-    owner: '{{ claude_code_user }}'
-    group: '{{ claude_code_group }}'
-    mode: '0644'
-
-- name: Create Claude Code skills directory
-  ansible.builtin.file:
-    path: '{{ claude_code_home }}/.claude/skills'
-    state: directory
-    owner: '{{ claude_code_user }}'
-    group: '{{ claude_code_group }}'
-    mode: '0755'
-
-- name: Deploy Claude Code skills
-  ansible.builtin.copy:
-    src: 'skills/'
-    dest: '{{ claude_code_home }}/.claude/skills/'
-    owner: '{{ claude_code_user }}'
-    group: '{{ claude_code_group }}'
-    mode: '0644'
-
 - name: Render LOGFIRE_TOKEN into fish init
   ansible.builtin.template:
     src: logfire.fish.j2
@@ -67,22 +35,52 @@
     group: '{{ claude_code_group }}'
     mode: '0600'
 
-- name: Check Logfire MCP server registered
-  ansible.builtin.command:
-    cmd: claude mcp list
-  become: true
-  become_user: '{{ claude_code_user }}'
-  register: claude_mcp_list
-  changed_when: false
+- name: Load Claude Code settings declaration
+  ansible.builtin.set_fact:
+    claude_settings: "{{ lookup('file', 'settings.json') | from_json }}"
 
-- name: Register Logfire MCP server (sandboxed bearer auth)
+- name: Register Claude plugin marketplaces
   ansible.builtin.command:
-    cmd: >-
-      claude mcp add logfire
-      --scope user
-      --transport http
-      --header "Authorization: Bearer {{ logfire_read_token }}"
-      https://logfire-us.pydantic.dev/mcp
+    cmd: claude plugin marketplace add {{ item.value.source.repo }}
   become: true
   become_user: '{{ claude_code_user }}'
-  when: "'logfire' not in claude_mcp_list.stdout"
+  loop: "{{ claude_settings.extraKnownMarketplaces | dict2items }}"
+  loop_control:
+    label: '{{ item.key }}'
+  register: claude_marketplace_add
+  changed_when: "'added' in claude_marketplace_add.stdout | lower"
+  failed_when:
+    - claude_marketplace_add.rc != 0
+    - "'already' not in (claude_marketplace_add.stderr | default('') | lower)"
+
+- name: Install Claude plugins
+  ansible.builtin.command:
+    cmd: claude plugin install {{ item.key }}
+  become: true
+  become_user: '{{ claude_code_user }}'
+  loop: "{{ claude_settings.enabledPlugins | dict2items | selectattr('value', 'equalto', true) | list }}"
+  loop_control:
+    label: '{{ item.key }}'
+  register: claude_plugin_install
+  changed_when: "'installed' in claude_plugin_install.stdout | lower"
+  failed_when:
+    - claude_plugin_install.rc != 0
+    - "'already' not in (claude_plugin_install.stderr | default('') | lower)"
+
+- name: Apply Claude scalar settings
+  ansible.builtin.command:
+    cmd: claude config set {{ item.key }} {{ item.value | string | lower if item.value is boolean else item.value | string }}
+  become: true
+  become_user: '{{ claude_code_user }}'
+  loop:
+    - { key: 'theme', value: '{{ claude_settings.theme }}' }
+    - { key: 'editorMode', value: '{{ claude_settings.editorMode }}' }
+    - { key: 'effortLevel', value: '{{ claude_settings.effortLevel }}' }
+    - { key: 'autoUpdatesChannel', value: '{{ claude_settings.autoUpdatesChannel }}' }
+    - { key: 'includeCoAuthoredBy', value: '{{ claude_settings.includeCoAuthoredBy }}' }
+    - { key: 'skipDangerousModePermissionPrompt', value: '{{ claude_settings.skipDangerousModePermissionPrompt }}' }
+    - { key: 'permissions.defaultMode', value: '{{ claude_settings.permissions.defaultMode }}' }
+  loop_control:
+    label: '{{ item.key }}'
+  register: claude_config_set
+  changed_when: "'updated' in claude_config_set.stdout | lower or 'set' in claude_config_set.stdout | lower"
