@@ -173,7 +173,8 @@ gce-configure: ansible-ready
 	TAILSCALE_AUTH_KEY=$$(gpg -d $(secrets_dir)/TAILSCALE_AUTH_KEY.gpg 2>/dev/null) || true
 	POSTGRESQL_REMOTE_PASSWORD=$$(gpg -d $(secrets_dir)/POSTGRESQL_REMOTE_PASSWORD.gpg 2>/dev/null) || true
 	LOGFIRE_READ_TOKEN=$$(gpg -d $(secrets_dir)/LOGFIRE_READ_TOKEN.gpg 2>/dev/null) || true
-	if [ -z "$$TAILSCALE_AUTH_KEY" ] || [ -z "$$POSTGRESQL_REMOTE_PASSWORD" ] || [ -z "$$LOGFIRE_READ_TOKEN" ]; then
+	ANTHROPIC_API_KEY=$$(gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null) || true
+	if [ -z "$$TAILSCALE_AUTH_KEY" ] || [ -z "$$POSTGRESQL_REMOTE_PASSWORD" ] || [ -z "$$LOGFIRE_READ_TOKEN" ] || [ -z "$$ANTHROPIC_API_KEY" ]; then
 		echo "Error: failed to decrypt secrets in $(secrets_dir) (is gpg-agent unlocked?)"
 		exit 1
 	fi
@@ -182,7 +183,7 @@ gce-configure: ansible-ready
 		if [ $$i -eq 5 ]; then exit 1; else sleep 6; fi;
 	done
 	$(ansible_playbook) $(ansible_args) \
-		--extra-vars "tailscale_auth_key=$$TAILSCALE_AUTH_KEY postgresql_remote_password=$$POSTGRESQL_REMOTE_PASSWORD logfire_read_token=$$LOGFIRE_READ_TOKEN" \
+		--extra-vars "tailscale_auth_key=$$TAILSCALE_AUTH_KEY postgresql_remote_password=$$POSTGRESQL_REMOTE_PASSWORD logfire_read_token=$$LOGFIRE_READ_TOKEN anthropic_api_key=$$ANTHROPIC_API_KEY" \
 		ansible/playbook-vm-config.yaml
 	$(MAKE) -C $(secrets_dir) clean
 
