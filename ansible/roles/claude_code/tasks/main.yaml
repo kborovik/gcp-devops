@@ -58,3 +58,31 @@
     owner: '{{ claude_code_user }}'
     group: '{{ claude_code_group }}'
     mode: '0644'
+
+- name: Render LOGFIRE_TOKEN into fish init
+  ansible.builtin.template:
+    src: logfire.fish.j2
+    dest: '{{ claude_code_home }}/.config/fish/conf.d/logfire.fish'
+    owner: '{{ claude_code_user }}'
+    group: '{{ claude_code_group }}'
+    mode: '0600'
+
+- name: Check Logfire MCP server registered
+  ansible.builtin.command:
+    cmd: claude mcp list
+  become: true
+  become_user: '{{ claude_code_user }}'
+  register: claude_mcp_list
+  changed_when: false
+
+- name: Register Logfire MCP server (sandboxed bearer auth)
+  ansible.builtin.command:
+    cmd: >-
+      claude mcp add logfire
+      --scope user
+      --transport http
+      --header "Authorization: Bearer {{ logfire_read_token }}"
+      https://logfire-us.pydantic.dev/mcp
+  become: true
+  become_user: '{{ claude_code_user }}'
+  when: "'logfire' not in claude_mcp_list.stdout"
