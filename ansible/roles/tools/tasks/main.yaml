@@ -66,3 +66,11 @@
   become_user: ubuntu
   register: uv_self_update
   changed_when: "'Upgraded' in uv_self_update.stdout"
+
+- name: Install logfire CLI as system tool
+  ansible.builtin.command:
+    cmd: /home/ubuntu/.local/bin/uv tool install logfire
+  become: true
+  become_user: ubuntu
+  register: logfire_cli_install
+  changed_when: "'Installed' in logfire_cli_install.stderr"
