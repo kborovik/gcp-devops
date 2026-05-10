@@ -35,38 +35,6 @@
     group: '{{ claude_code_group }}'
     mode: '0600'
 
-- name: Load Claude Code settings declaration
-  ansible.builtin.set_fact:
-    claude_settings: "{{ lookup('file', 'settings.json') | from_json }}"
-
-- name: Register Claude plugin marketplaces
-  ansible.builtin.command:
-    cmd: claude plugin marketplace add {{ item.value.source.repo }}
-  become: true
-  become_user: '{{ claude_code_user }}'
-  loop: '{{ claude_settings.extraKnownMarketplaces | dict2items }}'
-  loop_control:
-    label: '{{ item.key }}'
-  register: claude_marketplace_add
-  changed_when: "'added' in claude_marketplace_add.stdout | lower"
-  failed_when:
-    - claude_marketplace_add.rc != 0
-    - "'already' not in (claude_marketplace_add.stderr | default('') | lower)"
-
-- name: Install Claude plugins
-  ansible.builtin.command:
-    cmd: claude plugin install {{ item.key }}
-  become: true
-  become_user: '{{ claude_code_user }}'
-  loop: "{{ claude_settings.enabledPlugins | dict2items | selectattr('value', 'equalto', true) | list }}"
-  loop_control:
-    label: '{{ item.key }}'
-  register: claude_plugin_install
-  changed_when: "'installed' in claude_plugin_install.stdout | lower"
-  failed_when:
-    - claude_plugin_install.rc != 0
-    - "'already' not in (claude_plugin_install.stderr | default('') | lower)"
-
 - name: Ensure ~/.claude directory exists
   ansible.builtin.file:
     path: '{{ claude_code_home }}/.claude'
