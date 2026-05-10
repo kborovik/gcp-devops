@@ -44,7 +44,7 @@
     cmd: claude plugin marketplace add {{ item.value.source.repo }}
   become: true
   become_user: '{{ claude_code_user }}'
-  loop: "{{ claude_settings.extraKnownMarketplaces | dict2items }}"
+  loop: '{{ claude_settings.extraKnownMarketplaces | dict2items }}'
   loop_control:
     label: '{{ item.key }}'
   register: claude_marketplace_add
