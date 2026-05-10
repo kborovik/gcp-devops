@@ -67,20 +67,19 @@
     - claude_plugin_install.rc != 0
     - "'already' not in (claude_plugin_install.stderr | default('') | lower)"
 
-- name: Apply Claude scalar settings
-  ansible.builtin.command:
-    cmd: claude config set {{ item.key }} {{ item.value | string | lower if item.value is boolean else item.value | string }}
-  become: true
-  become_user: '{{ claude_code_user }}'
-  loop:
-    - { key: 'theme', value: '{{ claude_settings.theme }}' }
-    - { key: 'editorMode', value: '{{ claude_settings.editorMode }}' }
-    - { key: 'effortLevel', value: '{{ claude_settings.effortLevel }}' }
-    - { key: 'autoUpdatesChannel', value: '{{ claude_settings.autoUpdatesChannel }}' }
-    - { key: 'includeCoAuthoredBy', value: '{{ claude_settings.includeCoAuthoredBy }}' }
-    - { key: 'skipDangerousModePermissionPrompt', value: '{{ claude_settings.skipDangerousModePermissionPrompt }}' }
-    - { key: 'permissions.defaultMode', value: '{{ claude_settings.permissions.defaultMode }}' }
-  loop_control:
-    label: '{{ item.key }}'
-  register: claude_config_set
-  changed_when: "'updated' in claude_config_set.stdout | lower or 'set' in claude_config_set.stdout | lower"
+- name: Ensure ~/.claude directory exists
+  ansible.builtin.file:
+    path: '{{ claude_code_home }}/.claude'
+    state: directory
+    owner: '{{ claude_code_user }}'
+    group: '{{ claude_code_group }}'
+    mode: '0755'
+
+- name: Deploy Claude Code settings.json (only if missing)
+  ansible.builtin.copy:
+    src: settings.json
+    dest: '{{ claude_code_home }}/.claude/settings.json'
+    owner: '{{ claude_code_user }}'
+    group: '{{ claude_code_group }}'
+    mode: '0644'
+    force: false
