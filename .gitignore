@@ -1,5 +1,6 @@
 **/.terraform/
 .ralph/
 .ansible/
+.cache/
 .venv/
 ansible/.collections/

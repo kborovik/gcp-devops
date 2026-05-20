@@ -9,7 +9,7 @@
     - role: google_cli
     - role: gpg
       vars:
-        gpg_signing_key: '{{ playbook_dir }}/../secrets/github-signing.key'
+        gpg_signing_key: '{{ playbook_dir }}/../.cache/github-signing.key'
         gpg_user: ubuntu
     - role: tailscale
     - role: postgresql

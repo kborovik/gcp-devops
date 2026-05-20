@@ -27,8 +27,10 @@ google_zone ?= $(google_region)-b
 
 git_root := $(shell git rev-parse --show-toplevel)
 root_dir := $(git_root)
-secrets_dir := $(root_dir)/secrets
+cache_dir := $(root_dir)/.cache
 config_dir := $(root_dir)/config/$(google_project)
+
+pass_namespace := gcp-devops
 
 venv_dir := $(root_dir)/.venv
 venv_stamp := $(venv_dir)/.stamp
@@ -54,14 +56,23 @@ lint: terraform-validate ansible-lint ## Run Terraform and Ansible linters
 
 verify: ## Audit SPEC.md V1/V2/V6 invariants
 	rc=0
-	echo "==> V1: secrets/ committed plaintext check <=="
-	plaintext=$$(git -C $(root_dir) ls-files secrets/ | grep -vE '\.gpg$$|^secrets/\.gpg_id$$|^secrets/\.gitignore$$|^secrets/makefile$$' || true)
-	if [ -n "$$plaintext" ]; then
-		echo "V1 FAIL: committed plaintext under secrets/:"
-		echo "$$plaintext" | sed 's/^/  /'
+	echo "==> V1: secrets/ absent + pass entries present <=="
+	if git -C $(root_dir) ls-files | grep -q '^secrets/'; then
+		echo "V1 FAIL: secrets/ paths still tracked in repo"
 		rc=1
 	else
-		echo "V1 OK"
+		missing=""
+		for k in CLOUDFLARE_API_TOKEN GITHUB_TOKEN TAILSCALE_AUTH_KEY POSTGRESQL_REMOTE_PASSWORD LOGFIRE_READ_TOKEN ANTHROPIC_API_KEY github-signing.key ssh.key; do
+			if [ ! -f $$HOME/.password-store/$(pass_namespace)/$$k.gpg ]; then
+				missing="$$missing $$k"
+			fi
+		done
+		if [ -n "$$missing" ]; then
+			echo "V1 FAIL: pass entries missing under $(pass_namespace)/:$$missing"
+			rc=1
+		else
+			echo "V1 OK"
+		fi
 	fi
 	echo "==> V2: ansible inventory drift vs terraform-output.json <=="
 	for proj_dir in $(root_dir)/config/*/; do
@@ -144,17 +155,25 @@ deploy: terraform-validate ## Deploy to lab5-mailpilot-prd1 (prod requires confi
 ansible_dir := $(root_dir)/ansible
 ansible_user := ubuntu
 ansible_inventory := $(config_dir)/ansible/inventory
-ansible_ssh_key := $(secrets_dir)/ssh.key
-ansible_signing_key := $(secrets_dir)/github-signing.key
+ansible_ssh_key := $(cache_dir)/ssh.key
+ansible_signing_key := $(cache_dir)/github-signing.key
 ansible_args := --inventory $(ansible_inventory) --user $(ansible_user) --private-key $(ansible_ssh_key) --extra-vars ansible_python_interpreter='/usr/bin/python3.12'
 
 SSH_COMMON_ARGS := -o StrictHostKeyChecking=no
 
-$(ansible_ssh_key):
-	gpg $@.gpg && chmod 600 $@
+$(cache_dir):
+	mkdir -p $@
 
-$(ansible_signing_key):
-	gpg $@.gpg && chmod 600 $@
+$(ansible_ssh_key): | $(cache_dir)
+	pass show $(pass_namespace)/ssh.key > $@
+	chmod 600 $@
+
+$(ansible_signing_key): | $(cache_dir)
+	pass show $(pass_namespace)/github-signing.key > $@
+	chmod 600 $@
+
+cache-clean:
+	-shred -uf $(cache_dir)/* 2>/dev/null || true
 
 ansible-inventory:
 	find $(ansible_inventory) -maxdepth 1 -type f ! -name '.gitignore' -delete
@@ -170,12 +189,12 @@ ansible-lint: $(venv_stamp)
 # VM Configuration
 
 gce-configure: ansible-ready
-	TAILSCALE_AUTH_KEY=$$(gpg -d $(secrets_dir)/TAILSCALE_AUTH_KEY.gpg 2>/dev/null) || true
-	POSTGRESQL_REMOTE_PASSWORD=$$(gpg -d $(secrets_dir)/POSTGRESQL_REMOTE_PASSWORD.gpg 2>/dev/null) || true
-	LOGFIRE_READ_TOKEN=$$(gpg -d $(secrets_dir)/LOGFIRE_READ_TOKEN.gpg 2>/dev/null) || true
-	ANTHROPIC_API_KEY=$$(gpg -d $(secrets_dir)/ANTHROPIC_API_KEY.gpg 2>/dev/null) || true
+	TAILSCALE_AUTH_KEY=$$(pass show $(pass_namespace)/TAILSCALE_AUTH_KEY 2>/dev/null) || true
+	POSTGRESQL_REMOTE_PASSWORD=$$(pass show $(pass_namespace)/POSTGRESQL_REMOTE_PASSWORD 2>/dev/null) || true
+	LOGFIRE_READ_TOKEN=$$(pass show $(pass_namespace)/LOGFIRE_READ_TOKEN 2>/dev/null) || true
+	ANTHROPIC_API_KEY=$$(pass show $(pass_namespace)/ANTHROPIC_API_KEY 2>/dev/null) || true
 	if [ -z "$$TAILSCALE_AUTH_KEY" ] || [ -z "$$POSTGRESQL_REMOTE_PASSWORD" ] || [ -z "$$LOGFIRE_READ_TOKEN" ] || [ -z "$$ANTHROPIC_API_KEY" ]; then
-		echo "Error: failed to decrypt secrets in $(secrets_dir) (is gpg-agent unlocked?)"
+		echo "Error: failed to read pass entries under $(pass_namespace)/ (is gpg-agent unlocked?)"
 		exit 1
 	fi
 	for i in 1 2 3 4 5; do
@@ -185,16 +204,16 @@ gce-configure: ansible-ready
 	$(ansible_playbook) $(ansible_args) \
 		--extra-vars "tailscale_auth_key=$$TAILSCALE_AUTH_KEY postgresql_remote_password=$$POSTGRESQL_REMOTE_PASSWORD logfire_read_token=$$LOGFIRE_READ_TOKEN anthropic_api_key=$$ANTHROPIC_API_KEY" \
 		ansible/playbook-vm-config.yaml
-	$(MAKE) -C $(secrets_dir) clean
+	$(MAKE) cache-clean
 
 # LeadPilot Deployment
 
 leadpilot-deploy: ansible-ready
 	$(require_prd_confirm)
 	leadpilot_version='$(leadpilot_version)'
-	GITHUB_TOKEN=$$(gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null) || true
+	GITHUB_TOKEN=$$(pass show $(pass_namespace)/GITHUB_TOKEN 2>/dev/null) || true
 	if [ -z "$$GITHUB_TOKEN" ]; then
-		echo "Error: failed to decrypt $(secrets_dir)/GITHUB_TOKEN.gpg (is gpg-agent unlocked?)"
+		echo "Error: failed to read pass entry $(pass_namespace)/GITHUB_TOKEN (is gpg-agent unlocked?)"
 		exit 1
 	fi
 	if [ -z "$$leadpilot_version" ]; then
@@ -208,7 +227,7 @@ leadpilot-deploy: ansible-ready
 	$(ansible_playbook) $(ansible_args) \
 		--extra-vars "leadpilot_version=$$leadpilot_version leadpilot_github_token=$$GITHUB_TOKEN" \
 		ansible/playbook-leadpilot-deploy.yaml
-	$(MAKE) -C $(secrets_dir) clean
+	$(MAKE) cache-clean
 
 leadpilot-status: ansible-ready
 	$(ansible) $(ansible_args) all -m shell -a \
@@ -219,9 +238,9 @@ leadpilot-status: ansible-ready
 mailpilot-deploy: ansible-ready
 	$(require_prd_confirm)
 	mailpilot_version='$(mailpilot_version)'
-	GITHUB_TOKEN=$$(gpg -d $(secrets_dir)/GITHUB_TOKEN.gpg 2>/dev/null) || true
+	GITHUB_TOKEN=$$(pass show $(pass_namespace)/GITHUB_TOKEN 2>/dev/null) || true
 	if [ -z "$$GITHUB_TOKEN" ]; then
-		echo "Error: failed to decrypt $(secrets_dir)/GITHUB_TOKEN.gpg (is gpg-agent unlocked?)"
+		echo "Error: failed to read pass entry $(pass_namespace)/GITHUB_TOKEN (is gpg-agent unlocked?)"
 		exit 1
 	fi
 	if [ -z "$$mailpilot_version" ]; then
@@ -235,7 +254,7 @@ mailpilot-deploy: ansible-ready
 	$(ansible_playbook) $(ansible_args) \
 		--extra-vars "mailpilot_version=$$mailpilot_version mailpilot_github_token=$$GITHUB_TOKEN" \
 		ansible/playbook-mailpilot-deploy.yaml
-	$(MAKE) -C $(secrets_dir) clean
+	$(MAKE) cache-clean
 
 mailpilot-status: ansible-ready
 	$(ansible) $(ansible_args) all -m shell -a \
@@ -248,7 +267,7 @@ terraform_tfvars := $(config_dir)/terraform.tfvars
 terraform_output := $(config_dir)/terraform-output.json
 terraform_bucket := terraform-$(google_project)
 
-CLOUDFLARE_API_TOKEN = $(shell gpg -d $(secrets_dir)/CLOUDFLARE_API_TOKEN.gpg 2>/dev/null)
+CLOUDFLARE_API_TOKEN = $(shell pass show $(pass_namespace)/CLOUDFLARE_API_TOKEN 2>/dev/null)
 
 terraform-config:
 	ln -fs $(terraform_tfvars) $(terraform_dir)/terraform.tfvars
