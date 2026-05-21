@@ -21,14 +21,14 @@ Google Cloud infrastructure for Pilot Apps — Terraform, Ansible, and Make-base
 # Authenticate with Google Cloud
 make google-auth
 
-# Plan infrastructure changes (dev)
+# Plan infrastructure changes (prod — default)
 make terraform-plan
 
-# Plan infrastructure changes (prod)
-make terraform-plan google_project=mailpilot-org-prd1
+# Plan infrastructure changes (dev)
+make terraform-plan google_project=lab5-mailpilot-dev1
 
-# Full deployment (terraform + ansible)
-make mailpilot-pilot-dev1
+# Full deployment (terraform + ansible); prod requires `confirm=prd1`
+make deploy confirm=prd1
 ```
 
 ## Backup Architecture
@@ -88,19 +88,19 @@ Best for: disk failure or full infrastructure rebuild.
 
 ```bash
 # From your local machine — list available snapshots
-gcloud compute snapshots list --project=mailpilot-pilot-dev1 \
+gcloud compute snapshots list --project=lab5-mailpilot-prd1 \
   --filter="sourceDisk:mailpilot-1-pgsql" --sort-by=~creationTimestamp
 
 # Create a new disk from snapshot
 gcloud compute disks create mailpilot-1-pgsql \
-  --project=mailpilot-pilot-dev1 \
+  --project=lab5-mailpilot-prd1 \
   --zone=us-east5-b \
   --source-snapshot=<SNAPSHOT_NAME> \
   --type=pd-balanced
 
 # Re-run Terraform and Ansible to rebuild the instance with the restored disk
 make terraform-apply
-make ansible
+make gce-configure
 ```
 
 ### Verifying Backups
@@ -111,7 +111,7 @@ sudo zfs list -t snapshot -r data/postgresql
 systemctl status sanoid.timer
 
 # GCE disk snapshots (from local machine)
-gcloud compute snapshots list --project=mailpilot-pilot-dev1 \
+gcloud compute snapshots list --project=lab5-mailpilot-prd1 \
   --filter="sourceDisk:mailpilot-1-pgsql"
 ```
 
