@@ -36,17 +36,17 @@ V8: prod gate is var-driven, ⊥ stdin-driven. Makefile `require_prd_confirm` re
 
 ## SECRETS PREFLIGHT
 
-`make deploy` decrypts via gpg → ! gpg-agent unlocked. Required:
+`make deploy` reads via `pass(1)` (GPG-backed) → ! gpg-agent unlocked. Required entries ∈ `~/.password-store/gcp-devops/`:
 
 |secret|used by
-|`secrets/CLOUDFLARE_API_TOKEN.gpg`|terraform DNS
-|`secrets/TAILSCALE_AUTH_KEY.gpg`|gce-configure
-|`secrets/POSTGRESQL_REMOTE_PASSWORD.gpg`|gce-configure
-|`secrets/GITHUB_TOKEN.gpg`|leadpilot-deploy
-|`secrets/ssh.key.gpg`|ansible-ready
-|`secrets/github-signing.key.gpg`|ansible-ready
+|`gcp-devops/CLOUDFLARE_API_TOKEN`|terraform DNS
+|`gcp-devops/TAILSCALE_AUTH_KEY`|gce-configure
+|`gcp-devops/POSTGRESQL_REMOTE_PASSWORD`|gce-configure
+|`gcp-devops/GITHUB_TOKEN`|leadpilot-deploy
+|`gcp-devops/ssh.key`|ansible-ready
+|`gcp-devops/github-signing.key`|ansible-ready
 
-`gpg -d secrets/<f>.gpg >/dev/null` → fast probe; fail → ask user to unlock gpg-agent.
+`pass show gcp-devops/<K> >/dev/null` → fast probe; fail → ask user to unlock gpg-agent ∨ check pass store.
 
 ## FRICTIONS (outstanding)
 
@@ -74,7 +74,7 @@ env: google_project ?= lab5-mailpilot-prd1    → override per-invocation
 
 - Code edits to roles/playbooks ∈ scope of caller (user ∨ prior agent turn). /deploy ⊥ author code; runs cycle.
 - ⊥ touch `terraform/` HCL, `ansible/roles/*/tasks/`, `Makefile` from this skill.
-- Secrets edits ∉ scope; ! handled out-of-band via `make -C secrets {decrypt,encrypt,clean}`.
+- Secrets edits ∉ scope; ! handled out-of-band via `pass insert -m gcp-devops/<KEY>` (rotate) ∨ `pass show gcp-devops/<KEY>` (read).
 - Rollback ≡ revert commit + re-deploy. ⊥ in-place rollback target since pilot removed.
 
 ## DECISION TREE

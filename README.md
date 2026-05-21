@@ -6,14 +6,14 @@ Google Cloud infrastructure for Pilot Apps — Terraform, Ansible, and Make-base
 
 - **Terraform** — GCE instances, networking, DNS, service accounts, org policies
 - **Ansible** — VM configuration (OS tools, ZFS, Tailscale, Google Ops Agent)
-- **Secrets** — GPG-encrypted credentials with pass-style management
+- **Secrets** — `pass(1)` password store (GPG-backed); entries under `gcp-devops/*`
 
 ## Prerequisites
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
 - [Terraform](https://www.terraform.io/downloads)
 - [Ansible](https://www.ansible.com/)
-- GPG key for secrets decryption
+- [`pass(1)`](https://www.passwordstore.org/) initialized with a GPG key (store entries under `gcp-devops/*`)
 
 ## Usage
 

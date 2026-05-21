@@ -4,3 +4,18 @@
 .cache/
 .venv/
 ansible/.collections/
+
+# Defense in depth — never commit credential material
+.env*
+*.key
+*.pem
+*.crt
+*.p12
+*.gpg
+credentials.json
+service-account*.json
+secrets/
+
+# Terraform state (state lives in GCS; never local)
+*.tfstate
+*.tfstate.backup
