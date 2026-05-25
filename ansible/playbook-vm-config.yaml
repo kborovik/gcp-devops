@@ -16,3 +16,4 @@
     - role: sanoid
     - role: google_ops
     - role: claude_code
+    - role: firecrawl_cli

@@ -62,7 +62,7 @@ verify: ## Audit SPEC.md V1/V2/V6 invariants
 		rc=1
 	else
 		missing=""
-		for k in CLOUDFLARE_API_TOKEN GITHUB_TOKEN TAILSCALE_AUTH_KEY POSTGRESQL_REMOTE_PASSWORD LOGFIRE_READ_TOKEN ANTHROPIC_API_KEY github-signing.key ssh.key; do
+		for k in CLOUDFLARE_API_TOKEN GITHUB_TOKEN TAILSCALE_AUTH_KEY POSTGRESQL_REMOTE_PASSWORD LOGFIRE_READ_TOKEN ANTHROPIC_API_KEY FIRECRAWL_API_KEY github-signing.key ssh.key; do
 			if [ ! -f $$HOME/.password-store/$(pass_namespace)/$$k.gpg ]; then
 				missing="$$missing $$k"
 			fi
@@ -193,7 +193,8 @@ gce-configure: ansible-ready
 	POSTGRESQL_REMOTE_PASSWORD=$$(pass show $(pass_namespace)/POSTGRESQL_REMOTE_PASSWORD 2>/dev/null) || true
 	LOGFIRE_READ_TOKEN=$$(pass show $(pass_namespace)/LOGFIRE_READ_TOKEN 2>/dev/null) || true
 	ANTHROPIC_API_KEY=$$(pass show $(pass_namespace)/ANTHROPIC_API_KEY 2>/dev/null) || true
-	if [ -z "$$TAILSCALE_AUTH_KEY" ] || [ -z "$$POSTGRESQL_REMOTE_PASSWORD" ] || [ -z "$$LOGFIRE_READ_TOKEN" ] || [ -z "$$ANTHROPIC_API_KEY" ]; then
+	FIRECRAWL_API_KEY=$$(pass show $(pass_namespace)/FIRECRAWL_API_KEY 2>/dev/null) || true
+	if [ -z "$$TAILSCALE_AUTH_KEY" ] || [ -z "$$POSTGRESQL_REMOTE_PASSWORD" ] || [ -z "$$LOGFIRE_READ_TOKEN" ] || [ -z "$$ANTHROPIC_API_KEY" ] || [ -z "$$FIRECRAWL_API_KEY" ]; then
 		echo "Error: failed to read pass entries under $(pass_namespace)/ (is gpg-agent unlocked?)"
 		exit 1
 	fi
@@ -202,7 +203,7 @@ gce-configure: ansible-ready
 		if [ $$i -eq 5 ]; then exit 1; else sleep 6; fi;
 	done
 	$(ansible_playbook) $(ansible_args) \
-		--extra-vars "tailscale_auth_key=$$TAILSCALE_AUTH_KEY postgresql_remote_password=$$POSTGRESQL_REMOTE_PASSWORD logfire_read_token=$$LOGFIRE_READ_TOKEN anthropic_api_key=$$ANTHROPIC_API_KEY" \
+		--extra-vars "tailscale_auth_key=$$TAILSCALE_AUTH_KEY postgresql_remote_password=$$POSTGRESQL_REMOTE_PASSWORD logfire_read_token=$$LOGFIRE_READ_TOKEN anthropic_api_key=$$ANTHROPIC_API_KEY firecrawl_api_key=$$FIRECRAWL_API_KEY" \
 		ansible/playbook-vm-config.yaml
 	$(MAKE) cache-clean
 
