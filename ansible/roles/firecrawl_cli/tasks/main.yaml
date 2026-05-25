@@ -1,10 +1,4 @@
 ---
-- name: Install Node.js and npm
-  ansible.builtin.apt:
-    package: ['nodejs', 'npm']
-    update_cache: true
-    state: present
-
 - name: Ensure npm-global directory exists
   ansible.builtin.file:
     path: '{{ firecrawl_cli_home }}/.npm-global'
@@ -13,14 +7,23 @@
     group: '{{ firecrawl_cli_group }}'
     mode: '0755'
 
+- name: Configure npm global prefix for ubuntu
+  ansible.builtin.command:
+    cmd: npm config set prefix {{ firecrawl_cli_home }}/.npm-global
+  become: true
+  become_user: '{{ firecrawl_cli_user }}'
+  register: npm_prefix
+  changed_when: false
+
 - name: Install firecrawl-cli globally for ubuntu
   community.general.npm:
     name: firecrawl-cli
     global: true
     state: present
-    path: '{{ firecrawl_cli_home }}/.npm-global'
   become: true
   become_user: '{{ firecrawl_cli_user }}'
+  environment:
+    npm_config_prefix: '{{ firecrawl_cli_home }}/.npm-global'
 
 - name: Ensure fish conf.d directory exists
   ansible.builtin.file:
