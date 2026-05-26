@@ -51,3 +51,11 @@
     group: '{{ claude_code_group }}'
     mode: '0644'
     force: false
+
+- name: Deploy Claude Code statusline script
+  ansible.builtin.copy:
+    src: statusline-command.sh
+    dest: '{{ claude_code_home }}/.claude/statusline-command.sh'
+    owner: '{{ claude_code_user }}'
+    group: '{{ claude_code_group }}'
+    mode: '0755'

@@ -4,6 +4,10 @@
     "allow": ["WebSearch"],
     "defaultMode": "auto"
   },
+  "statusLine": {
+    "type": "command",
+    "command": "sh ~/.claude/statusline-command.sh"
+  },
   "enabledPlugins": {
     "logfire@pydantic-skills": true,
     "sdd@pilot-skills": true,
