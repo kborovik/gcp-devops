@@ -10,7 +10,7 @@
 
 - name: Install OS Tools
   ansible.builtin.apt:
-    package: ['acl', 'bat', 'fish', 'git', 'jq', 'make', 'gnupg', 'tree']
+    package: ['acl', 'bat', 'fish', 'git', 'jq', 'make', 'gnupg', 'tmux', 'tree']
     update_cache: true
     state: present
 
@@ -29,6 +29,14 @@
     owner: ubuntu
     group: ubuntu
     mode: preserve
+
+- name: Copy tmux config
+  ansible.builtin.copy:
+    src: tmux/tmux.conf
+    dest: /home/ubuntu/.tmux.conf
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
 
 - name: Set vm.swappiness to 1
   ansible.posix.sysctl:

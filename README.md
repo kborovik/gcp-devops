@@ -127,3 +127,31 @@ Procedure:
 4. Confirm the service comes back healthy and recent rows are visible
 
 Record the drill date and outcome in the team runbook. If two quarters pass without a successful drill, treat the backup chain as unverified and escalate before relying on it.
+
+## tmux on GCE Hosts
+
+The `tools` Ansible role installs `tmux` and drops a baseline `~/.tmux.conf` on the `ubuntu` user (`ansible/roles/tools/files/tmux/tmux.conf`). The config targets the iTerm2 → SSH → tmux → Claude Code path on Ubuntu 24.04 (tmux 3.4).
+
+### iTerm2 client setup
+
+The `set-clipboard on` directive uses OSC 52 to push tmux copy-mode selections to the macOS pasteboard through iTerm2. Enable the matching iTerm2 permission once per workstation:
+
+**iTerm2 → Preferences → General → Selection → "Applications in terminal may access clipboard"**
+
+Without this toggle, `prefix [` then `y` in tmux will not reach the macOS clipboard.
+
+### Applying config changes
+
+After `make gce-configure` updates `~/.tmux.conf`:
+
+- `default-terminal "tmux-256color"` only takes effect on a fresh tmux server. Run `tmux kill-server` and reattach to pick it up.
+- All other settings (`set-clipboard`, `mouse`, `history-limit`, etc.) apply live via `tmux source-file ~/.tmux.conf` in any attached session.
+
+### Authoring gotchas
+
+When editing `roles/tools/files/tmux/tmux.conf`:
+
+- Do **not** remap `C-c` or `C-d` — Claude Code uses them to interrupt the agent and exit the session.
+- Do **not** enable `remain-on-exit` globally — it leaves zombie panes when `/exit` runs.
+- Keep the default `C-b` prefix. Remapping to `C-a` collides with readline `beginning-of-line` in Claude Code's input box.
+- tmux 3.4 (the Ubuntu 24.04 apt version) ships with all directives the baseline uses — no version-gating needed.
