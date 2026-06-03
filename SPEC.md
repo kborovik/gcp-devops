@@ -1,10 +1,10 @@
 # SPEC.md
 
-## §G
+## §G GOAL
 
 Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS, IAM, network). Ansible → VM cfg (ZFS, Postgres, Tailscale, ops agent). GPG → secrets. `make` ≡ sole driver.
 
-## §C
+## §C CONSTRAINTS
 
 - gcloud CLI ! authenticated (`make google-auth`)
 - Terraform ≥ 1.0 ∧ < 2.0
@@ -13,7 +13,7 @@ Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS,
 - TF state ∈ GCS bucket `terraform-<google_project>` (per-project)
 - Postgres 18, `wal_level=minimal`, `max_wal_senders=0` → ⊥ streaming replication
 
-## §I
+## §I INTERFACES
 
 |kind|name|shape|
 |cmd|`make terraform-plan`|plan vs `config/<p>/terraform.tfvars`|
@@ -30,7 +30,7 @@ Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS,
 |file|`config/<p>/ansible/inventory/group_vars/all.yaml`|optional per-project ansible overrides (slot; absence ⊥ drift)|
 |cmd|`pass show gcp-devops/<KEY>`|decrypt secret → stdout (consumed by makefile decrypt step, ansible `--extra-vars` threading, TF env)|
 
-## §V
+## §V INVARIANTS
 
 - V1: ∀ secret ∈ pass(1) store @ `~/.password-store/gcp-devops/<KEY>.gpg`, encrypted to GPG recipient pinned ∈ §C (≡ fingerprint of retired `secrets/.gpg_id`); ⊥ ∈ repo, ⊥ plaintext @ rest. Why: pass entries off-repo ∧ ⊥ tied to repo lifecycle, but crypto recipient unchanged ∴ decrypt path on operator laptops ∧ GCE hosts identical; consumers ! read via `pass show gcp-devops/<KEY>`
 - V2: ansible inventory ! regenerated from `terraform-output.json` via `make ansible-inventory` — ⊥ hand-edit
@@ -48,11 +48,11 @@ Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS,
 - V14: claude_code role copies 2 role-shipped files → `~/.claude/`: (a) `ansible/roles/claude_code/files/settings.json` (mirrors developer-laptop config) via `ansible.builtin.copy` w/ `force: false` mode 0644 → bootstraps on first run, ⊥ overwrite ∴ host-side ad-hoc tweaks preserved (operator `claude config set`, in-app edits); (b) `ansible/roles/claude_code/files/statusline-command.sh` via `ansible.builtin.copy` w/ default `force: true` mode 0755 → role-controlled asset, updates propagate ∀ run. Claude CLI auto-installs marketplaces ∧ plugins from `extraKnownMarketplaces` ∧ `enabledPlugins` ∈ settings.json on first invocation ∴ ⊥ explicit `claude plugin marketplace add` ∨ `claude plugin install` ansible tasks. Settings keys (`statusLine` object, scalars `theme`, `editorMode`, `autoUpdatesChannel`, `permissions.defaultMode`, `includeCoAuthoredBy`, `skipDangerousModePermissionPrompt`) carried by settings.json copy. ⊥ local file copy under `files/{commands,skills}/`. Why: Claude CLI first-run plugin lifecycle reads settings.json directly ∴ ansible-side per-key CLI invocation ≡ redundant ∧ doubles source-of-truth; settings.json `force: false` preserves no-clobber ∀ host-side drift; statusline script ⊥ host-tweak expectation ∴ `force: true` keeps synced w/ role asset, ⊥ manual re-deploy step. statusline `jq` runtime dep satisfied by `tools` role (predecessor per §V4)
 - V15: repo ≡ public on GitHub (sales collateral ∀ https://lab5.ca) ∴ ∀ commit ∧ ∀ working-tree state ⊥ contain {secret material (plaintext ∨ encrypted blob), PII outside lab5.ca scope, cloud identifier outside lab5.ca/kborovik scope, local-machine path beyond CLAUDE.md, GitHub token, API key, private key, `*.tfstate*`, `.env*`, service-account JSON}; lab5.ca-scoped info ≡ allowed (domain `lab5.ca`, email `kb@lab5.ca`, GCP project `lab5-mailpilot-*`, GitHub org `kborovik`, public IP ∀ GCE instance, GPG recipient fingerprint pinned ∈ §C). Why: public-repo leak ≡ unrecoverable post-publish (git history ∧ third-party caches retain). How to apply: `.gitignore` defense-in-depth patterns (`*.key`, `*.pem`, `*.gpg`, `*.tfstate*`, `.env*`, `credentials.json`, `service-account*.json`, `secrets/`) ∧ pre-publish audit (filter-repo blob inspection + sensitive-info grep sweep) ∧ ∀ commit mental V15 check; `make verify` audits V1 subset (⊥ `secrets/` tracked) but ⊥ full V15 sweep
 
-## §T
+## §T TASKS
 
 |id|status|task|cites
 |T1|x|add `make verify` → audits V1 (grep plaintext secrets), V2 (inventory drift vs `terraform-output.json`), V6 (no per-project files outside `config/`)|V1,V2,V6
-|T2|x|document ZFS rollback restore-test cadence (smoke-test ≥ 1×/quarter on dev) ∈ README §Recovery|V?,I.cmd
+|T2|x|document ZFS rollback restore-test cadence (smoke-test ≥ 1×/quarter on dev) ∈ README §Recovery|I.cmd
 |T3|x|add mailpilot deploy mirror — ansible role `mailpilot/`, `playbook-mailpilot-deploy.yaml`, Makefile `mailpilot-deploy` ∧ `mailpilot-status` targets, GitHub release fetch via `GITHUB_TOKEN`|V1,I.cmd
 |T4|x|gate prod deploy — `*-deploy` ∧ `deploy` targets refuse to invoke ansible-playbook when `google_project=lab5-mailpilot-prd1` unless `confirm=prd1` set ∨ interactive y/N answered|V8
 |T5|x|enforce V9 — set `SHELL := bash` ∧ `.SHELLFLAGS := -ec` ∈ Makefile head; verify ∀ multi-line recipe (`leadpilot-deploy`, `mailpilot-deploy`, `gce-configure`) propagates non-zero exit on mid-recipe failure|V9
@@ -69,12 +69,12 @@ Provision ∧ configure GCP infra ∀ Pilot Apps. Terraform → infra (GCE, DNS,
 |T16|x|deploy operator-side `ANTHROPIC_API_KEY` for vim-claude — `makefile gce-configure` decrypts `secrets/ANTHROPIC_API_KEY.gpg` (parallel to `LOGFIRE_READ_TOKEN`), threads as `--extra-vars anthropic_api_key=…`; `tools` role renders `~ubuntu/.anthropic-api-key` (owner ubuntu, mode 0600) → vim-claude `g:claude_api_key` resolves via existing file-first lookup @ `roles/tools/files/vim/pack/kborovik/start/vim-claude/plugin/claude.vim:11-18`. Closes `secrets/ANTHROPIC_API_KEY.gpg` orphan flagged ∈ §T.14|V13,I.cmd
 |T17|x|fix V3 quoting @ `ansible/roles/claude_code/tasks/main.yaml:47` — `loop:` value → single-quoted (`loop: '{{ claude_settings.extraKnownMarketplaces \| dict2items }}'`); re-run V3 spot-grep to confirm sole instance|V3
 |T18|x|drop redundant CLI dispatch @ `ansible/roles/claude_code/tasks/main.yaml` — remove tasks `Load Claude Code settings declaration` (set_fact), `Register Claude plugin marketplaces`, `Install Claude plugins` (lines 38-68); sole settings dispatcher ≡ existing `Deploy Claude Code settings.json (only if missing)` copy task per amended V14|V14
-|T19|x|migrate `secrets/` → pass store (store pre-initialized w/ recipient pinned ∈ §C ∴ ⊥ `pass init` step ∈ this task); ∀ K ∈ {CLOUDFLARE_API_TOKEN, GITHUB_TOKEN, TAILSCALE_AUTH_KEY, POSTGRESQL_REMOTE_PASSWORD, LOGFIRE_READ_TOKEN, ANTHROPIC_API_KEY, github-signing.key, ssh.key} → `gpg -d secrets/<K>.gpg \| pass insert -m gcp-devops/<K>`; sweep grep pattern `secrets/` ∈ `makefile` + `ansible/**/*.{yaml,j2}` + `CLAUDE.md` + `README.md`; replace `gpg -d secrets/<K>.gpg` ∧ `make -C secrets <step>` w/ `pass show gcp-devops/<K>`; delete `secrets/` folder + secrets-makefile post-cutover|V1,C,I
+|T19|x|migrate `secrets/` → pass store (store pre-initialized w/ recipient pinned ∈ §C ∴ ⊥ `pass init` step ∈ this task); ∀ K ∈ {CLOUDFLARE_API_TOKEN, GITHUB_TOKEN, TAILSCALE_AUTH_KEY, POSTGRESQL_REMOTE_PASSWORD, LOGFIRE_READ_TOKEN, ANTHROPIC_API_KEY, github-signing.key, ssh.key} → `gpg -d secrets/<K>.gpg \| pass insert -m gcp-devops/<K>`; sweep grep pattern `secrets/` ∈ `makefile` + `ansible/**/*.{yaml,j2}` + `CLAUDE.md` + `README.md`; replace `gpg -d secrets/<K>.gpg` ∧ `make -C secrets <step>` w/ `pass show gcp-devops/<K>`; delete `secrets/` folder + secrets-makefile post-cutover|V1,I.cmd
 |T20|x|add `firecrawl_cli` ansible role (+ shared `nodejs` runtime role) — `nodejs` role installs Node {{ nodejs_major_version }}.x (default 22) via NodeSource apt repo (`deb https://deb.nodesource.com/node_22.x nodistro main`, keyring @ `/etc/apt/keyrings/nodesource.asc`) → ⊥ Ubuntu apt `nodejs` (24.04 ships v18, firecrawl-cli engines.node ≥22); `nodejs` role reusable ∀ future Node-based tools. `firecrawl_cli` runs `npm install -g firecrawl-cli` as ubuntu w/ global prefix ≡ `~/.npm-global` set via `npm config set prefix` task + `npm_config_prefix` env on install task — `community.general.npm` `path:` arg ignored when `global: true` ∴ prefix ! threaded via env/config, ⊥ module param; PATH wired per `roles/tools/files/fish/config.fish`. Render `~ubuntu/.config/fish/conf.d/firecrawl.fish` w/ `set -gx FIRECRAWL_API_KEY '…'` (owner ubuntu, mode 0600, no_log: true) → `firecrawl` CLI auto-auths via env var per upstream docs. Wire roles ∈ `playbook-vm-config.yaml` per amended §V4 (`nodejs` before `firecrawl_cli`); `makefile gce-configure` decrypts `pass show gcp-devops/FIRECRAWL_API_KEY` (parallel to ANTHROPIC_API_KEY) ∧ threads as `--extra-vars firecrawl_api_key=…`; extend `make verify` V1 key list w/ `FIRECRAWL_API_KEY`. Operator-tooling token per §V13 (ad-hoc scraping on GCE host, ⊥ app-runtime)|V1,V4,V13,I.cmd
 |T21|x|extend `claude_code` role per amended §V14 (∂) — add `ansible/roles/claude_code/files/statusline-command.sh` (mirrored ∈ `~/.dotfiles/claude/`); append task `Deploy Claude Code statusline script` ∈ `roles/claude_code/tasks/main.yaml` (copy w/ mode 0755, default `force: true`); add `statusLine` object key (`type: command`, `command: sh ~/.claude/statusline-command.sh`) ∈ `files/settings.json` → first-run hosts auto-wire. Caveat: settings.json `force: false` ∴ pre-existing hosts ⊥ pick up `statusLine` key automatically — manual merge req'd|V14
 |T22|x|add tmux baseline cfg via `tools` role — append `tmux` to apt pkg list ∈ `ansible/roles/tools/tasks/main.yaml`; drop `ansible/roles/tools/files/tmux/tmux.conf` w/ per-issue-7 settings (`tmux-256color` + RGB override, `focus-events on`, `mouse on`, `history-limit 100000`, `escape-time 50`, `set-clipboard on`, `aggressive-resize`, `pane-border-status top` + format, `set-titles on`) ∧ per-line `# ...` comments per issue rationale; add task `Copy tmux config` → `/home/ubuntu/.tmux.conf` (owner ubuntu, mode 0644, force: true). README append iTerm2 clipboard permission toggle (Preferences → General → Selection → "Applications in terminal may access clipboard") + caveat `default-terminal` change ! `tmux kill-server` + re-attach (other keys apply via `tmux source-file ~/.tmux.conf`) + 4 gotchas (⊥ remap C-c/C-d ≡ Claude Code interrupt, ⊥ `remain-on-exit` global ≡ zombie panes, keep default `C-b` prefix ≡ `C-a` collides w/ readline ∈ Claude Code input, tmux 3.4 ships all directives ∴ ⊥ version-gate). Operator-tooling per §V13 (interactive SSH UX, ⊥ app-runtime)|V13,I.cmd
 
-## §B
+## §B BUGS
 
 |id|date|cause|fix
 |B1|2026-05-07|`make -n` under `.ONESHELL:` executed deploy recipe → mailpilot playbook ran on `mailpilot-prd1.lab5.ca` (db ∧ tool installed) when intended as dry-run preflight|V8
