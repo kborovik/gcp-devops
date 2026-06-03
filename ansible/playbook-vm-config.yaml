@@ -18,3 +18,4 @@
     - role: claude_code
     - role: nodejs
     - role: firecrawl_cli
+    - role: googleworkspace_cli
