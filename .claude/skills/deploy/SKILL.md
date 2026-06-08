@@ -19,9 +19,9 @@ V2: ∀ deploy → target project named in confirmation prompt. ⊥ implicit pro
 V3: prod (`lab5-mailpilot-prd1`) → ! explicit user "yes deploy to prod" before `make deploy`. Hook will block otherwise (correct behavior).
 V4: deploy ≡ `make deploy` ∴ submakes inherit `google_project` via `.EXPORT_ALL_VARIABLES`. ⊥ pass per-submake.
 V5: ∀ deploy → `make lint` ! exit 0 first. lint failure ≡ deploy bail. fix all violations (∨ scope-suppress in `.ansible-lint`) ∧ retry; ⊥ proceed dirty.
-V6: post-deploy → ! `make gce-status` ∧ `make leadpilot-status` (∨ `gce-exec cmd='systemctl status leadpilot.timer'`).
-V7: ∀ deploy failure (lint fail, plan-check exit 2, gce-configure fail, leadpilot-deploy fail, post-deploy verify fail) → ! auto-invoke `/sdd:spec bug:` w/ failing stage + observed symptom + cmd output excerpt before surfacing fix to user. ⊥ retry ∨ patch silently. Backprop skill decides if new §V invariant prevents recurrence.
-V8: prod gate is var-driven, ⊥ stdin-driven. Makefile `require_prd_confirm` reads `confirm=prd1` ∧ fires once per submake (`deploy`, `gce-configure`, `leadpilot-deploy`). ∴ ∀ non-interactive prod deploy → `make deploy confirm=prd1` (propagates to all submakes). ⊥ `echo yes | make deploy` — outer gate eats the single yes ∧ inner submake gate starves @ EOF.
+V6: post-deploy → ! `make gce-status` ∧ `make mailpilot-status`.
+V7: ∀ deploy failure (lint fail, plan-check exit 2, gce-configure fail, mailpilot-deploy fail, post-deploy verify fail) → ! auto-invoke `/sdd:spec bug:` w/ failing stage + observed symptom + cmd output excerpt before surfacing fix to user. ⊥ retry ∨ patch silently. Backprop skill decides if new §V invariant prevents recurrence.
+V8: prod gate is var-driven, ⊥ stdin-driven. Makefile `require_prd_confirm` reads `confirm=prd1` ∧ fires once per submake (`deploy`, `gce-configure`, `mailpilot-deploy`). ∴ ∀ non-interactive prod deploy → `make deploy confirm=prd1` (propagates to all submakes). ⊥ `echo yes | make deploy` — outer gate eats the single yes ∧ inner submake gate starves @ EOF.
 
 ## TASKS
 
@@ -31,7 +31,7 @@ V8: prod gate is var-driven, ⊥ stdin-driven. Makefile `require_prd_confirm` re
 |T3|.|run `make lint` → ! exit 0; ⊥ proceed otherwise|V5
 |T4|.|ask user confirmation w/ project name + change summary|V3
 |T5|.|run `make deploy confirm=prd1` (∨ `make deploy google_project=<name> confirm=prd1` for prod; omit `confirm` for non-prod)|V4,V8
-|T6|.|run `make gce-status` ∧ `make leadpilot-status` → emit summary|V6
+|T6|.|run `make gce-status` ∧ `make mailpilot-status` → emit summary|V6
 |T7|.|on any failure in T3/T5/T6 → invoke `/sdd:spec bug: <stage> — <symptom>` w/ cmd output excerpt; ⊥ skip on transient/retry-class fail (spec skill triages)|V7
 
 ## SECRETS PREFLIGHT
@@ -42,7 +42,7 @@ V8: prod gate is var-driven, ⊥ stdin-driven. Makefile `require_prd_confirm` re
 |`gcp-devops/CLOUDFLARE_API_TOKEN`|terraform DNS
 |`gcp-devops/TAILSCALE_AUTH_KEY`|gce-configure
 |`gcp-devops/POSTGRESQL_REMOTE_PASSWORD`|gce-configure
-|`gcp-devops/GITHUB_TOKEN`|leadpilot-deploy
+|`gcp-devops/GITHUB_TOKEN`|mailpilot-deploy
 |`gcp-devops/ssh.key`|ansible-ready
 |`gcp-devops/github-signing.key`|ansible-ready
 
@@ -59,11 +59,11 @@ V8: prod gate is var-driven, ⊥ stdin-driven. Makefile `require_prd_confirm` re
 ## INTERFACES
 
 ```
-cmd: make deploy confirm=prd1 [google_project=<name>]  → terraform-apply + gce-configure + leadpilot-deploy (prod ! `confirm=prd1` per V8; non-prod omits)
+cmd: make deploy confirm=prd1 [google_project=<name>]  → terraform-apply + gce-configure + mailpilot-deploy (prod ! `confirm=prd1` per V8; non-prod omits)
 cmd: make lint                                → terraform-validate + ansible-lint
 cmd: make settings                            → echo project/region/zone/config_dir
 cmd: make gce-status                          → gcloud instances list
-cmd: make leadpilot-status                    → ansible all -m shell ...
+cmd: make mailpilot-status                    → ansible all -m shell ...
 cmd: make gce-exec cmd='<sh>'                 → ansible adhoc shell
 cmd: make gce-ssh                             → ssh ubuntu@<dns>
 cmd: make terraform-plan                      → preview infra delta
@@ -99,8 +99,8 @@ user: "/deploy"
   ├─ make deploy confirm=prd1 [google_project=<name>]   (confirm=prd1 ∀ prod per V8; omit ∀ non-prod)
   │   ├─ plan-check exit 2 (changes pending) → invoke `/sdd:spec bug: tf-plan-drift — <resources>` → bail; user runs `make terraform-apply` then re-runs deploy
   │   ├─ fail @ gce-configure → invoke `/sdd:spec bug: gce-configure — <task> <handler>` w/ ansible output excerpt → render handler, ask
-  │   └─ fail @ leadpilot-deploy → invoke `/sdd:spec bug: leadpilot-deploy — <stage>` w/ excerpt → check GitHub API auth (token decrypt), fallback to explicit `leadpilot_version=`
-  └─ make gce-status ∧ make leadpilot-status
+  │   └─ fail @ mailpilot-deploy → invoke `/sdd:spec bug: mailpilot-deploy — <stage>` w/ excerpt → check GitHub API auth (token decrypt), fallback to explicit `mailpilot_version=`
+  └─ make gce-status ∧ make mailpilot-status
       ├─ pass → emit summary
       └─ fail (timer ⊥ active, version mismatch, instance ⊥ RUNNING) → invoke `/sdd:spec bug: post-deploy-verify — <symptom>` w/ status excerpt → surface to user
 ```
@@ -109,9 +109,9 @@ user: "/deploy"
 
 Render to user:
 - gce instance status (RUNNING)
-- leadpilot version installed (`leadpilot --version`)
-- leadpilot timer state (`systemctl status leadpilot.timer`)
-- last 5 lines of leadpilot log (`tail -5 ~/.local/state/leadpilot/server.log` ∨ equivalent)
+- mailpilot version installed (`mailpilot --version`)
+- mailpilot service state (`systemctl is-active mailpilot.service`)
+- last 5 lines of mailpilot journal (`journalctl -u mailpilot --no-pager -n 5`)
 
 ## RELATED
 

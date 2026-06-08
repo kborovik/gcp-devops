@@ -147,7 +147,6 @@ deploy: terraform-validate ## Deploy to lab5-mailpilot-prd1 (prod requires confi
 	echo ""
 	echo "==> Deploy $(google_project) (no infra changes) <=="
 	$(MAKE) gce-configure
-	$(MAKE) leadpilot-deploy
 	$(MAKE) mailpilot-deploy
 
 # Ansible
@@ -206,33 +205,6 @@ gce-configure: ansible-ready
 		--extra-vars "tailscale_auth_key=$$TAILSCALE_AUTH_KEY postgresql_remote_password=$$POSTGRESQL_REMOTE_PASSWORD logfire_read_token=$$LOGFIRE_READ_TOKEN anthropic_api_key=$$ANTHROPIC_API_KEY firecrawl_api_key=$$FIRECRAWL_API_KEY" \
 		ansible/playbook-vm-config.yaml
 	$(MAKE) cache-clean
-
-# LeadPilot Deployment
-
-leadpilot-deploy: ansible-ready
-	$(require_prd_confirm)
-	leadpilot_version='$(leadpilot_version)'
-	GITHUB_TOKEN=$$(pass show $(pass_namespace)/GITHUB_TOKEN 2>/dev/null) || true
-	if [ -z "$$GITHUB_TOKEN" ]; then
-		echo "Error: failed to read pass entry $(pass_namespace)/GITHUB_TOKEN (is gpg-agent unlocked?)"
-		exit 1
-	fi
-	if [ -z "$$leadpilot_version" ]; then
-		leadpilot_version=$$(curl -fsSL -H "Authorization: Bearer $$GITHUB_TOKEN" https://api.github.com/repos/kborovik/leadpilot/releases/latest 2>/dev/null | jq -r '.tag_name // empty' | sed 's/^v//') || true
-	fi
-	if [ -z "$$leadpilot_version" ]; then
-		echo "Error: could not detect latest leadpilot release. Pass explicitly: make leadpilot-deploy leadpilot_version=X.Y.Z"
-		exit 1
-	fi
-	echo "==> Deploy LeadPilot v$$leadpilot_version to $(google_project) <=="
-	$(ansible_playbook) $(ansible_args) \
-		--extra-vars "leadpilot_version=$$leadpilot_version leadpilot_github_token=$$GITHUB_TOKEN" \
-		ansible/playbook-leadpilot-deploy.yaml
-	$(MAKE) cache-clean
-
-leadpilot-status: ansible-ready
-	$(ansible) $(ansible_args) all -m shell -a \
-		"leadpilot --version; echo '---'; leadpilot status; echo '---'; crontab -l | grep leadpilot || true"
 
 # MailPilot Deployment
 
